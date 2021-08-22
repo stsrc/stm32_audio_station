@@ -1,0 +1,83 @@
+# name of executable
+
+ELF=$(notdir $(CURDIR)).elf
+
+# Libroot path
+
+LIBROOT=/home/kgotfryd/programming/packages/STM32CubeF4-1.26.2/Drivers/
+FreeRTOS=/home/kgotfryd/programming/packages/FreeRTOSv202107.00/FreeRTOS/
+
+# Tools
+
+CC=arm-none-eabi-gcc
+LD=arm-none-eabi-gcc
+AR=arm-none-eabi-ar
+AS=arm-none-eabi-as
+
+# Library paths
+
+INCLUDE=$(LIBROOT)/CMSIS/Device/ST/STM32F4xx/Include/
+CORE=$(LIBROOT)/CMSIS/Device/ST/STM32F4xx/Source/Templates/
+INCLUDE_CORE=$(LIBROOT)/CMSIS/Core/Include/
+FreeRTOS_INCLUDE=$(FreeRTOS)/Source/include/
+FreeRTOS_INCLUDE_2=$(FreeRTOS)/Source/portable/GCC/ARM_CM4F/
+FreeRTOS_SRC=$(FreeRTOS)/Source
+FreeRTOS_SRC_MemMang=$(FreeRTOS_SRC)/portable/MemMang
+# Search path for core files
+
+vpath %.c $(CORE)
+vpath %.s $(CORE)/gcc
+vpath %.c $(FreeRTOS_INCLUDE_2)
+vpath %.c $(FreeRTOS_SRC)
+vpath %.c $(FreeRTOS_SRC_MemMang)
+
+#  Processor specific
+#
+LDSCRIPT=$(LIBROOT)/../Projects/STM32F411E-Discovery/Templates/SW4STM32/STM32F411E-Discovery/STM32F411VETx_FLASH.ld
+STARTUP=startup_stm32f411xe.o system_stm32f4xx.o
+
+FreeRTOS_obj=port.o tasks.o list.o timers.o queue.o heap_4.o
+
+PTYPE=STM32F10X_MD_VL
+DEVICE=STM32F411xE
+
+# File special definitions
+
+# Compilation Flags
+LDFLAGS+= -T$(LDSCRIPT) -mcpu=cortex-m4 -mthumb -mfpu=fpv4-sp-d16 -mfloat-abi=hard
+LDFLAGS+= -specs=nosys.specs
+LDFLAGS+= -Wall -Wl,-gc-sections,-u,main
+CFLAGS+= -mcpu=cortex-m4 -mthumb -mfpu=fpv4-sp-d16 -mfloat-abi=hard
+CFLAGS+= -O0 -g3 -Wall -std=gnu99
+CFLAGS+= -fdata-sections
+CFLAGS+= -I$(CORE) -I$(INCLUDE) -I$(INCLUDE_CORE) -I$(FreeRTOS_INCLUDE) -I.
+CFLAGS+= -I$(FreeRTOS_INCLUDE_2)
+CFLAGS+= -D$(PTYPE) -D$(DEVICE)
+# Build executable
+
+$(ELF) : $(OBJS)
+	$(LD) $(LDFLAGS) -o $@ $(OBJS)  $(LDLIBS) -lm
+
+# compile and generate dependency info
+
+%.o: %.c
+	$(CC) -c $(CFLAGS) $< -o $@
+	$(CC) -MM $(CFLAGS) $< > $*.d
+
+%.o: %.s
+	$(CC) -c $(CFLAGS) $< -o $@
+
+clean:
+	rm -f $(OBJS) $(OBJS:.o=.d) $(ELF) startup_stm32f* $(CLEANOTHER)
+
+debug: $(ELF)
+	armeb-unknown-eabi-gdb $(ELF)
+
+
+# pull in dependencies
+
+-include $(OBJS:.o=.d)
+
+
+
+
