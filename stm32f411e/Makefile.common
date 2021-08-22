@@ -48,7 +48,7 @@ LDFLAGS+= -T$(LDSCRIPT) -mcpu=cortex-m4 -mthumb -mfpu=fpv4-sp-d16 -mfloat-abi=ha
 LDFLAGS+= -specs=nosys.specs
 LDFLAGS+= -Wall -Wl,-gc-sections,-u,main
 CFLAGS+= -mcpu=cortex-m4 -mthumb -mfpu=fpv4-sp-d16 -mfloat-abi=hard
-CFLAGS+= -O0 -g3 -Wall -std=gnu99
+CFLAGS+= -Os -g3 -Wall -std=gnu99
 CFLAGS+= -fdata-sections
 CFLAGS+= -I$(CORE) -I$(INCLUDE) -I$(INCLUDE_CORE) -I$(FreeRTOS_INCLUDE) -I.
 CFLAGS+= -I$(FreeRTOS_INCLUDE_2)
