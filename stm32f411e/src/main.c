@@ -5,6 +5,8 @@
 #include "FreeRTOS.h"
 #include "task.h"
 
+#include "tm_ili9341.h"
+
 #define GPIO_setBit(PORT, PIN) (PORT->BSRR |= PIN)
 #define GPIO_clearBit(PORT, PIN) (PORT->BSRR |= (PIN << 0x10))
 
@@ -28,6 +30,11 @@ void ledTask(void * pvParameters)
 
 int main(void){
 	init_blue_led();
+
+	TM_ILI9341_Init();
+	for (int i = 0; i < 320; i++) {
+		TM_ILI9341_DrawPixel(120, i, ILI9341_COLOR_WHITE);
+	}
 
 	TaskHandle_t xHandle = NULL;
 	BaseType_t xReturned = xTaskCreate(ledTask, "LEDTask", 32, 0, tskIDLE_PRIORITY, &xHandle);
