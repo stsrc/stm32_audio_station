@@ -28,25 +28,34 @@ void ledTask(void * pvParameters)
 	}
 }
 
+void lcdTask(void *pvParameters)
+{
+	const TickType_t delay = 1000 / portTICK_PERIOD_MS;
+	while (1) {
+		TM_ILI9341_Fill(ILI9341_COLOR_BLACK);
+		vTaskDelay(delay);
+		for (int i = 0; i < 320; i++) {
+			TM_ILI9341_DrawPixel(120, i, ILI9341_COLOR_WHITE);
+		}
+		vTaskDelay(delay);
+	}
+}
+
 int main(void){
 	init_blue_led();
 
 	TM_ILI9341_Init();
-	for (int i = 0; i < 320; i++) {
-		TM_ILI9341_DrawPixel(120, i, ILI9341_COLOR_WHITE);
-	}
+
 
 	TaskHandle_t xHandle = NULL;
-	BaseType_t xReturned = xTaskCreate(ledTask, "LEDTask", 32, 0, tskIDLE_PRIORITY, &xHandle);
-
+	xTaskCreate(ledTask, "LEDTask", 32, 0, tskIDLE_PRIORITY, &xHandle);
+	xTaskCreate(lcdTask, "LCDTask", 64, 0, tskIDLE_PRIORITY, &xHandle);
 	vTaskStartScheduler();
 
 	while(1){
 	}
 
-	if (xReturned == pdPASS) {
-		vTaskDelete(xHandle);
-	}
+
 }
 
 void vApplicationStackOverflowHook( TaskHandle_t xTask, char *pcTaskName )
