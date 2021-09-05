@@ -7,7 +7,7 @@ ASFLAGS = -g3
 
 # object files
 
-OBJS= main.o SPI.o tm_fonts.o tm_ili9341.o $(STARTUP) $(FreeRTOS_obj)
+OBJS= main.o SPI.o tm_fonts.o tm_ili9341.o xpt2046.o $(STARTUP) $(FreeRTOS_obj)
 
 # include common make file
 

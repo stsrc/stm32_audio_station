@@ -6,6 +6,7 @@
 #include "task.h"
 
 #include "tm_ili9341.h"
+#include "xpt2046.h"
 
 #define GPIO_setBit(PORT, PIN) (PORT->BSRR |= PIN)
 #define GPIO_clearBit(PORT, PIN) (PORT->BSRR |= (PIN << 0x10))
@@ -32,11 +33,11 @@ void lcdTask(void *pvParameters)
 {
 	const TickType_t delay = 1000 / portTICK_PERIOD_MS;
 	while (1) {
-		TM_ILI9341_Fill(ILI9341_COLOR_BLACK);
-		vTaskDelay(delay);
-		for (int i = 0; i < 320; i++) {
-			TM_ILI9341_DrawPixel(120, i, ILI9341_COLOR_WHITE);
-		}
+//		TM_ILI9341_Fill(ILI9341_COLOR_BLACK);
+//		vTaskDelay(delay);
+//		for (int i = 0; i < 320; i++) {
+//			TM_ILI9341_DrawPixel(120, i, ILI9341_COLOR_WHITE);
+//		}
 		vTaskDelay(delay);
 	}
 }
@@ -45,11 +46,12 @@ int main(void){
 	init_blue_led();
 
 	TM_ILI9341_Init();
-
+	xpt2046_Init();
 
 	TaskHandle_t xHandle = NULL;
 	xTaskCreate(ledTask, "LEDTask", 32, 0, tskIDLE_PRIORITY, &xHandle);
 	xTaskCreate(lcdTask, "LCDTask", 64, 0, tskIDLE_PRIORITY, &xHandle);
+	xTaskCreate(xpt2046_task, "XPT2046Task", 128, 0, tskIDLE_PRIORITY, &xHandle);
 	vTaskStartScheduler();
 
 	while(1){
