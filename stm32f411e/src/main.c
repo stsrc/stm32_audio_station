@@ -14,6 +14,8 @@
 #define GPIO_clearBit(PORT, PIN) (PORT->BSRR |= (PIN << 0x10))
 
 //TODO: timeouts in fatfs
+//TODO: change compilation optimatization
+//TODO: fix touchscreen
 
 static void init_blue_led() {
 	//RCC clock enable
@@ -57,14 +59,14 @@ int main(void){
 		while(1);
 	}
 
-/*	FIL fp;
+	FIL fp;
 	if (f_open(&fp, "testfile", FA_READ) != FR_OK) {
 		while(1);
 	}
 
 	char line[100];
 	memset(line, 0, sizeof(line));
-	f_gets(line, sizeof(line), &fp);*/
+	f_gets(line, sizeof(line), &fp);
 
 	TaskHandle_t xHandle = NULL;
 	xTaskCreate(ledTask, "LEDTask", 32, 0, tskIDLE_PRIORITY, &xHandle);
