@@ -110,3 +110,65 @@ void SPI_2_read(uint8_t *rx, uint16_t bytes)
 		rx[i] = SPI2->DR;
 	}
 }
+
+void SPI_4_init(void)
+{
+	RCC->AHB1ENR |= RCC_AHB1ENR_GPIOEEN;
+	RCC->APB2ENR |= RCC_APB2ENR_SPI4EN;
+
+	/*
+	 * GPIOE11 - NSS
+	 * GPIOE12 - SCK
+	 * GPIOE13 - MISO
+	 * GPIOE14 - MOSI
+	 */
+
+	GPIOE->MODER |= GPIO_MODER_MODER12_1;
+	GPIOE->MODER |= GPIO_MODER_MODER13_1;
+	GPIOE->MODER |= GPIO_MODER_MODER14_1;
+
+	GPIOE->AFR[1] |= GPIO_AFRH_AFSEL12_0 | GPIO_AFRH_AFSEL12_2;
+	GPIOE->AFR[1] |= GPIO_AFRH_AFSEL13_0 | GPIO_AFRH_AFSEL13_2;
+	GPIOE->AFR[1] |= GPIO_AFRH_AFSEL14_0 | GPIO_AFRH_AFSEL14_2;
+
+	GPIOE->OSPEEDR |= GPIO_OSPEEDR_OSPEED12_0 | GPIO_OSPEEDR_OSPEED12_1;
+	GPIOE->OSPEEDR |= GPIO_OSPEEDR_OSPEED13_0 | GPIO_OSPEEDR_OSPEED13_1;
+	GPIOE->OSPEEDR |= GPIO_OSPEEDR_OSPEED14_0 | GPIO_OSPEEDR_OSPEED14_1;
+
+	GPIOE->PUPDR |= GPIO_PUPDR_PUPD12_0;
+	GPIOE->PUPDR |= GPIO_PUPDR_PUPD13_0;
+	GPIOE->PUPDR |= GPIO_PUPDR_PUPD14_0;
+
+        SPI4->CR1 |= SPI_CR1_BR_0 | SPI_CR1_BR_1 | SPI_CR1_BR_2;
+
+	SPI4->CR1 |= SPI_CR1_SSM;
+	SPI4->CR1 |= SPI_CR1_SSI;
+	SPI4->CR1 |= SPI_CR1_MSTR;
+	SPI4->CR1 |= SPI_CR1_SPE;
+}
+
+uint8_t SPI_4_send(uint8_t data)
+{
+	while(SPI4->SR & SPI_SR_BSY);
+	SPI4->DR = data;
+	while(SPI4->SR & SPI_SR_BSY);
+	while(!(SPI4->SR & SPI_SR_RXNE));
+	return (uint8_t) SPI4->DR;
+}
+
+void SPI_4_send_multi(const uint8_t *data, uint32_t bytes)
+{
+	for (uint32_t i = 0; i < bytes; i++)
+		SPI_4_send(data[i]);
+}
+
+void SPI_4_read(uint8_t *rx, uint32_t bytes)
+{
+	for (uint32_t i = 0; i < bytes; i++) {
+		while(SPI4->SR & SPI_SR_BSY);
+		SPI4->DR = 0xff;
+		while(SPI4->SR & SPI_SR_BSY);
+		while(!(SPI4->SR & SPI_SR_RXNE));
+		rx[i] = SPI4->DR;
+	}
+}

@@ -3,3 +3,4 @@
 *.d
 rtos-test
 cscope.out
+*.swp
