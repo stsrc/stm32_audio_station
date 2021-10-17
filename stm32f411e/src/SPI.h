@@ -18,4 +18,6 @@ void SPI_4_send_multi(const uint8_t *data, uint32_t bytes);
 //send 0xff as dummy
 void SPI_4_read(uint8_t *rx, uint32_t bytes);
 
+void I2S_3_init(void);
+void I2S_3_write(int16_t value);
 #endif

@@ -10,6 +10,10 @@
 
 #include "fatfs/ff.h"
 
+#include "cs43l22.h"
+
+#include "RCC.h"
+
 #define GPIO_setBit(PORT, PIN) (PORT->BSRR |= PIN)
 #define GPIO_clearBit(PORT, PIN) (PORT->BSRR |= (PIN << 0x10))
 
@@ -21,7 +25,6 @@ static void init_blue_led() {
 	//RCC clock enable
 	RCC->AHB1ENR |= RCC_AHB1ENR_GPIODEN;
 	GPIOD->MODER |= GPIO_MODER_MODER15_0;
-	GPIOD->ODR |= GPIO_ODR_OD15;
 }
 
 void ledTask(void * pvParameters)
@@ -49,29 +52,36 @@ void lcdTask(void *pvParameters)
 }
 
 int main(void){
-	init_blue_led();
-
+	rcc_init_clock();
 	TM_ILI9341_Init();
 	xpt2046_Init();
-
+	init_blue_led();
 	FATFS FatFs;
+
 	if (f_mount(&FatFs, "", 1) != FR_OK) {
 		while(1);
 	}
 
 	FIL fp;
-	if (f_open(&fp, "testfile", FA_READ) != FR_OK) {
+	if (f_open(&fp, "A.wav", FA_READ) != FR_OK) {
 		while(1);
 	}
 
-	char line[100];
-	memset(line, 0, sizeof(line));
+	char line[16];
 	f_gets(line, sizeof(line), &fp);
+
+	cs43l22_init();
+
+//	cs43l22_beep();
+
+	cs43l22_task(NULL);
+
 
 	TaskHandle_t xHandle = NULL;
 	xTaskCreate(ledTask, "LEDTask", 32, 0, tskIDLE_PRIORITY, &xHandle);
 	xTaskCreate(lcdTask, "LCDTask", 64, 0, tskIDLE_PRIORITY, &xHandle);
 	xTaskCreate(xpt2046_task, "XPT2046Task", 128, 0, tskIDLE_PRIORITY, &xHandle);
+	xTaskCreate(cs43l22_task, "cs43l22Task", 128, 0, tskIDLE_PRIORITY, &xHandle);
 	vTaskStartScheduler();
 
 	while(1){
