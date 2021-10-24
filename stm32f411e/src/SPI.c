@@ -1,10 +1,6 @@
 #include "SPI.h"
 #include <assert.h>
 
-void SPI_show_error(int errorCode)
-{
-}
-
 int SPI_1_init(void)
 {
 	RCC->APB2ENR |= RCC_APB2ENR_SPI1EN;
@@ -200,21 +196,41 @@ void I2S_3_init(void)
 	//i2s configuration mode
 	SPI3->I2SCFGR |= SPI_I2SCFGR_I2SCFG_1;
 
-//	SPI3->I2SPR |= SPI_I2SPR_ODD;
+
 
 //	SPI3->I2SPR = (SPI3->I2SPR & ~SPI_I2SPR_I2SDIV_Msk) | 2;
 
 //	SPI3->I2SPR = (SPI3->I2SPR & ~SPI_I2SPR_I2SDIV_Msk) |6;
-	SPI3->I2SPR = (SPI3->I2SPR & ~SPI_I2SPR_I2SDIV_Msk) | 10;
+//	SPI3->I2SPR = (SPI3->I2SPR & ~SPI_I2SPR_I2SDIV_Msk) | 10;
+//	SPI3->I2SPR = (SPI3->I2SPR & ~SPI_I2SPR_I2SDIV_Msk) | 10;
+
+	SPI3->I2SPR |= SPI_I2SPR_ODD;
+	SPI3->I2SPR = (SPI3->I2SPR & ~SPI_I2SPR_I2SDIV_Msk) | 3;
 	//master clock output enable
 	SPI3->I2SPR |= SPI_I2SPR_MCKOE;
 
+
+	//Transmit empty interrupt
+//	SPI3->CR2 |= SPI_CR2_TXEIE;
+//	NVIC_EnableIRQ(SPI3_IRQn);
+//
+	//enable DMA tx
+	SPI3->CR2 |= SPI_CR2_TXDMAEN;
+
 	//i2s enable
 	SPI3->I2SCFGR |= SPI_I2SCFGR_I2SE;
+
+
 }
 
 void I2S_3_write(int16_t value)
 {
 	while(!(SPI3->SR & SPI_SR_TXE));
 	SPI3->DR = value;
+	NVIC_EnableIRQ(SPI3_IRQn);
+}
+
+void SPI3_IRQHandler()
+{
+	NVIC_DisableIRQ(SPI3_IRQn);
 }

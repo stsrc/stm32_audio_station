@@ -14,6 +14,8 @@
 
 #include "RCC.h"
 
+#include "DMA.h"
+
 #define GPIO_setBit(PORT, PIN) (PORT->BSRR |= PIN)
 #define GPIO_clearBit(PORT, PIN) (PORT->BSRR |= (PIN << 0x10))
 
@@ -71,11 +73,9 @@ int main(void){
 	f_gets(line, sizeof(line), &fp);
 
 	cs43l22_init();
-
-//	cs43l22_beep();
+	DMA_init();
 
 	cs43l22_task(NULL);
-
 
 	TaskHandle_t xHandle = NULL;
 	xTaskCreate(ledTask, "LEDTask", 32, 0, tskIDLE_PRIORITY, &xHandle);

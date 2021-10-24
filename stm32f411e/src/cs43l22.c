@@ -1,11 +1,13 @@
 #include <stddef.h>
 #include <stm32f4xx.h>
 #include <math.h>
-#include <FreeRTOS.h>
+#include "FreeRTOS.h"
+#include "task.h"
 
 #include "cs43l22.h"
 #include "I2C.h"
 #include "SPI.h"
+#include "DMA.h"
 
 #define ADDRESS 0x94
 
@@ -36,7 +38,6 @@ void cs43l22_init(void)
 	cs43l22_write_reg(0x04, 0xaf);
 	cs43l22_write_reg(0x06, 0x07);
 
-
 	//power on
 	cs43l22_write_reg(0x02, 0x9E);
 
@@ -64,17 +65,17 @@ uint8_t cs43l22_beep(void)
 
 void cs43l22_sin_tone(double frequency)
 {
-/*	if (frequency > 22050.0) {
+	if (frequency > 22050.0) {
 		return;
 	}
 
-	double S_rate = 22031.0;
+	double S_rate = 47991.07143;
 	double T = 1.0 / S_rate;
 	double t = 1.0 / frequency;
 	size_t sampleCount = t / T;
 
-	uint16_t *values = pvPortMalloc(sampleCount * sizeof(uint16_t));
-	if (values == NULL) {
+	int16_t *audio_data = pvPortMalloc(sampleCount * sizeof(uint16_t));
+	if (audio_data == NULL) {
 		while(1);
 	}
 
@@ -82,20 +83,15 @@ void cs43l22_sin_tone(double frequency)
 	double omega = 2.0 * M_PI * freq;
 
 	for (size_t i = 0; i < sampleCount; i++) {
-		values[i] = (uint16_t) (1000.0 + 900.0 * sin(omega * i * T));
-	}
-*/
-#define BUFFER_SIZE 2200
-	int16_t audio_data[2*BUFFER_SIZE];
-	for (int i = 0; i < BUFFER_SIZE; i++) {
-		int16_t value = (int16_t)(32000.0 * sin(2.0 * M_PI * i / 22.0));
-	        audio_data[i * 2] = value;
-		audio_data[i * 2 + 1] = value;
+		audio_data[i] = (int16_t) (32000.0 * sin(omega * i * T));
 	}
 	static size_t it = 0;
 	while(1) {
-		I2S_3_write(audio_data[it]);
-		it = (it + 1) % (2 * BUFFER_SIZE);
+		DMA_I2S3_write_half_word(audio_data[it]);
+		DMA_I2S3_write_half_word(audio_data[it]);
+//		I2S_3_write(audio_data[it]);
+//		I2S_3_write(audio_data[it]);
+		it = (it + 1) % sampleCount;
 	}
 }
 
