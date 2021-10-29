@@ -75,13 +75,11 @@ int main(void){
 	cs43l22_init();
 	DMA_init();
 
-	cs43l22_task(NULL);
-
 	TaskHandle_t xHandle = NULL;
-	xTaskCreate(ledTask, "LEDTask", 32, 0, tskIDLE_PRIORITY, &xHandle);
+	xTaskCreate(ledTask, "LEDTask", 64, 0, tskIDLE_PRIORITY, &xHandle);
 	xTaskCreate(lcdTask, "LCDTask", 64, 0, tskIDLE_PRIORITY, &xHandle);
 	xTaskCreate(xpt2046_task, "XPT2046Task", 128, 0, tskIDLE_PRIORITY, &xHandle);
-	xTaskCreate(cs43l22_task, "cs43l22Task", 128, 0, tskIDLE_PRIORITY, &xHandle);
+	xTaskCreate(cs43l22_task, "cs43l22Task", 128, 0, tskIDLE_PRIORITY + 1, &xHandle);
 	vTaskStartScheduler();
 
 	while(1){

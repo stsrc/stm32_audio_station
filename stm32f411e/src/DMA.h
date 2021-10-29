@@ -7,5 +7,5 @@
 
 void DMA_init(void);
 bool DMA_I2S3_write_half_word(int16_t hw);
-
+bool DMA_I2S3_write_half_words(int16_t *buffer, size_t size);
 #endif

@@ -72,9 +72,9 @@ void cs43l22_sin_tone(double frequency)
 	double S_rate = 47991.07143;
 	double T = 1.0 / S_rate;
 	double t = 1.0 / frequency;
-	size_t sampleCount = t / T;
+	size_t sampleCount = 2 * ((t / T) + 0.5); // 2 times because both channels
 
-	int16_t *audio_data = pvPortMalloc(sampleCount * sizeof(uint16_t));
+	int16_t *audio_data = pvPortMalloc(sampleCount * sizeof(int16_t));
 	if (audio_data == NULL) {
 		while(1);
 	}
@@ -82,16 +82,16 @@ void cs43l22_sin_tone(double frequency)
 	double freq = frequency;
 	double omega = 2.0 * M_PI * freq;
 
-	for (size_t i = 0; i < sampleCount; i++) {
-		audio_data[i] = (int16_t) (32000.0 * sin(omega * i * T));
+	for (size_t i = 0; i < sampleCount; i += 2) {
+		audio_data[i] = (int16_t) (32000.0 * sin(omega * i / 2 * T));
+		audio_data[i + 1] = audio_data[i];
 	}
-	static size_t it = 0;
 	while(1) {
-		DMA_I2S3_write_half_word(audio_data[it]);
-		DMA_I2S3_write_half_word(audio_data[it]);
-//		I2S_3_write(audio_data[it]);
-//		I2S_3_write(audio_data[it]);
-		it = (it + 1) % sampleCount;
+		bool ret;
+		do {
+			ret = DMA_I2S3_write_half_words(audio_data, sampleCount);
+		} while(!ret);
+		vTaskDelay(1);
 	}
 }
 
