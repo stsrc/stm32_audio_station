@@ -20,4 +20,12 @@ void SPI_4_read(uint8_t *rx, uint32_t bytes);
 
 void I2S_3_init(void);
 void I2S_3_write(int16_t value);
+
+enum I2S_clock {
+	I2S_48000,
+	I2S_44100,
+	I2S_32000
+};
+
+void I2S_3_set_clock(enum I2S_clock clock);
 #endif

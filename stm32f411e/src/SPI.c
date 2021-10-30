@@ -196,16 +196,8 @@ void I2S_3_init(void)
 	//i2s configuration mode
 	SPI3->I2SCFGR |= SPI_I2SCFGR_I2SCFG_1;
 
+	I2S_3_set_clock(I2S_48000);
 
-
-//	SPI3->I2SPR = (SPI3->I2SPR & ~SPI_I2SPR_I2SDIV_Msk) | 2;
-
-//	SPI3->I2SPR = (SPI3->I2SPR & ~SPI_I2SPR_I2SDIV_Msk) |6;
-//	SPI3->I2SPR = (SPI3->I2SPR & ~SPI_I2SPR_I2SDIV_Msk) | 10;
-//	SPI3->I2SPR = (SPI3->I2SPR & ~SPI_I2SPR_I2SDIV_Msk) | 10;
-
-	SPI3->I2SPR |= SPI_I2SPR_ODD;
-	SPI3->I2SPR = (SPI3->I2SPR & ~SPI_I2SPR_I2SDIV_Msk) | 3;
 	//master clock output enable
 	SPI3->I2SPR |= SPI_I2SPR_MCKOE;
 
@@ -219,8 +211,6 @@ void I2S_3_init(void)
 
 	//i2s enable
 	SPI3->I2SCFGR |= SPI_I2SCFGR_I2SE;
-
-
 }
 
 void I2S_3_write(int16_t value)
@@ -228,6 +218,30 @@ void I2S_3_write(int16_t value)
 	while(!(SPI3->SR & SPI_SR_TXE));
 	SPI3->DR = value;
 	NVIC_EnableIRQ(SPI3_IRQn);
+}
+
+void I2S_3_set_clock(enum I2S_clock clock)
+{
+	SPI3->I2SCFGR &= ~SPI_I2SCFGR_I2SE;
+
+	switch(clock) {
+	case I2S_48000:
+		SPI3->I2SPR |= SPI_I2SPR_ODD;
+		SPI3->I2SPR = (SPI3->I2SPR & ~SPI_I2SPR_I2SDIV_Msk) | 3;
+		break;
+	case I2S_44100:
+		SPI3->I2SPR &= ~SPI_I2SPR_ODD;
+		SPI3->I2SPR = (SPI3->I2SPR & ~SPI_I2SPR_I2SDIV_Msk) | 6;
+		break;
+	case I2S_32000:
+		SPI3->I2SPR |= SPI_I2SPR_ODD;
+		SPI3->I2SPR = (SPI3->I2SPR & ~SPI_I2SPR_I2SDIV_Msk) | 6;
+		break;
+	default:
+		while(1);
+	}
+
+	SPI3->I2SCFGR |= SPI_I2SCFGR_I2SE;
 }
 
 void SPI3_IRQHandler()
