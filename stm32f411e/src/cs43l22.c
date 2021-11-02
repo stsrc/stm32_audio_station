@@ -79,7 +79,7 @@ void cs43l22_sin_tone(double frequency)
 		while(1);
 	}
 
-	const size_t LUT_SIZE = round(S_rate / 1000);
+	const size_t LUT_SIZE = round(S_rate / 750);
 	int16_t *LUT = pvPortMalloc(LUT_SIZE * sizeof(int16_t));
 	if (!LUT)
 		while(1);
@@ -93,9 +93,7 @@ void cs43l22_sin_tone(double frequency)
 	if (!audio_data)
 		while(1);
 
-	const int f = round(frequency);
-
-	const double delta_phi = (double) f / S_rate * LUT_SIZE;
+	const double delta_phi = frequency / S_rate * LUT_SIZE;
 
 	double phase = 0.0f;
 
@@ -122,7 +120,7 @@ void cs43l22_sin_tone(double frequency)
 
 void cs43l22_task(void *pvParameters)
 {
-	cs43l22_sin_tone(1000.0);
+	cs43l22_sin_tone(1500.0);
 }
 
 void cs43l22_set_clock(enum cs43l22_clock clock)
