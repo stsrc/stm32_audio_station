@@ -1,6 +1,8 @@
 #include <stddef.h>
 #include <stm32f4xx.h>
 #include <math.h>
+#include <limits.h>
+
 #include "FreeRTOS.h"
 #include "task.h"
 
@@ -13,7 +15,7 @@
 #define ADDRESS 0x94
 
 static enum cs43l22_clock currentClock;
-static double clock[] = { 47991.07143, 44108.07292, 32001.20192 };
+static double clock[] = { 47991.0714285714, 44108.0729166667, 32001.2019230769 };
 
 static uint8_t cs43l22_read_reg(uint8_t reg)
 {
@@ -38,9 +40,7 @@ void cs43l22_init(void)
 	GPIOD->ODR |= GPIO_ODR_OD4;
 
 	rcc_init_i2s_clock();
-
 	I2S_3_init();
-
 	currentClock = cs43l22_48000;
 
 	cs43l22_write_reg(0x04, 0xaf);
@@ -73,41 +73,51 @@ uint8_t cs43l22_beep(void)
 
 void cs43l22_sin_tone(double frequency)
 {
+	double S_rate = clock[currentClock];
+
 	if (frequency > 22050.0) {
 		while(1);
 	}
-	double S_rate, T, t;
-do_again:
-	S_rate = clock[currentClock];
-	T = 1.0 / S_rate;
-	t = 1.0 / frequency;
-	size_t sampleCount = 2 * ((t / T) + 0.5); // 2 times because both channels
 
-	int16_t *audio_data = pvPortMalloc(sampleCount * sizeof(int16_t));
-	if (audio_data == NULL) {
+	const size_t LUT_SIZE = round(S_rate / 1000);
+	int16_t *LUT = pvPortMalloc(LUT_SIZE * sizeof(int16_t));
+	if (!LUT)
 		while(1);
+
+	for (size_t i = 0; i < LUT_SIZE; i++) {
+		LUT[i] = (int16_t) round(SHRT_MAX * sin(2.0 * M_PI * (double) i / LUT_SIZE));
 	}
 
-	double freq = frequency;
-	double omega = 2.0 * M_PI * freq;
+	const int BUFF_SIZE = LUT_SIZE;
+	int16_t *audio_data = pvPortMalloc(2 * BUFF_SIZE * sizeof(int16_t));
+	if (!audio_data)
+		while(1);
 
-	for (size_t i = 0; i < sampleCount; i += 2) {
-		//divison by 2 because of increment of 2 per loop round
-		audio_data[i] = (int16_t) (32000.0 * sin(omega * i / 2 * T));
+	const int f = round(frequency);
+
+	const double delta_phi = (double) f / S_rate * LUT_SIZE;
+
+	double phase = 0.0f;
+
+	for (int i = 0; i < 2 * BUFF_SIZE; i += 2) {
+		int phase_i = (int) phase;
+		audio_data[i] = LUT[phase_i];
 		audio_data[i + 1] = audio_data[i];
+		phase += delta_phi;
+		if (phase >= (double)LUT_SIZE)
+			phase -= (double)LUT_SIZE;
 	}
-	for (int i = 0; i < 5000; i++) {
+
+//	for (int i = 0; i < 5000; i++) {
+	for (;;) {
 		bool ret;
 		do {
-			ret = DMA_I2S3_write_half_words(audio_data, sampleCount);
+			ret = DMA_I2S3_write_half_words(audio_data, 2 * BUFF_SIZE);
 		} while(!ret);
 		vTaskDelay(1);
 	}
 
 	vPortFree(audio_data);
-	currentClock = (currentClock + 1) % 3;
-	cs43l22_set_clock(currentClock);
-	goto do_again;
 }
 
 void cs43l22_task(void *pvParameters)
