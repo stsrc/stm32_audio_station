@@ -2,3 +2,5 @@
 2. why there is some noise on different sampling frequencies?
 3. fix touchscreen
 4. why lcd is lagging?
+//TODO: timeouts in fatfs
+//TODO: change compilation optimatization

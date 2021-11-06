@@ -19,10 +19,6 @@
 #define GPIO_setBit(PORT, PIN) (PORT->BSRR |= PIN)
 #define GPIO_clearBit(PORT, PIN) (PORT->BSRR |= (PIN << 0x10))
 
-//TODO: timeouts in fatfs
-//TODO: change compilation optimatization
-//TODO: fix touchscreen
-
 static void init_blue_led() {
 	//RCC clock enable
 	RCC->AHB1ENR |= RCC_AHB1ENR_GPIODEN;
@@ -58,28 +54,15 @@ int main(void){
 	TM_ILI9341_Init();
 	xpt2046_Init();
 	init_blue_led();
-	FATFS FatFs;
-
-	if (f_mount(&FatFs, "", 1) != FR_OK) {
-		while(1);
-	}
-
-	FIL fp;
-	if (f_open(&fp, "A.wav", FA_READ) != FR_OK) {
-		while(1);
-	}
-
-	char line[16];
-	f_gets(line, sizeof(line), &fp);
 
 	cs43l22_init();
 	DMA_init();
 
 	TaskHandle_t xHandle = NULL;
-	xTaskCreate(ledTask, "LEDTask", 64, 0, tskIDLE_PRIORITY, &xHandle);
-	xTaskCreate(lcdTask, "LCDTask", 64, 0, tskIDLE_PRIORITY, &xHandle);
-	xTaskCreate(xpt2046_task, "XPT2046Task", 128, 0, tskIDLE_PRIORITY, &xHandle);
-	xTaskCreate(cs43l22_task, "cs43l22Task", 128, 0, tskIDLE_PRIORITY + 1, &xHandle);
+//	xTaskCreate(ledTask, "LEDTask", 64, 0, tskIDLE_PRIORITY, &xHandle);
+//	xTaskCreate(lcdTask, "LCDTask", 64, 0, tskIDLE_PRIORITY, &xHandle);
+//	xTaskCreate(xpt2046_task, "XPT2046Task", 128, 0, tskIDLE_PRIORITY, &xHandle);
+	xTaskCreate(cs43l22_task, "cs43l22Task", 512, 0, tskIDLE_PRIORITY + 1, &xHandle);
 	vTaskStartScheduler();
 
 	while(1){

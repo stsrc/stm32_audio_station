@@ -6,6 +6,7 @@
 #include "FreeRTOS.h"
 #include "task.h"
 
+#include "fatfs/ff.h"
 #include "cs43l22.h"
 #include "I2C.h"
 #include "SPI.h"
@@ -50,8 +51,8 @@ void cs43l22_init(void)
 	cs43l22_write_reg(0x02, 0x9E);
 
 	//set volume to sane level
-	cs43l22_write_reg(0x22, 0b10001000);
-	cs43l22_write_reg(0x23, 0b10001000);
+	cs43l22_write_reg(0x22, 0b11001000);
+	cs43l22_write_reg(0x23, 0b11001000);
 }
 
 uint8_t cs43l22_beep(void)
@@ -79,7 +80,7 @@ void cs43l22_sin_tone(double frequency)
 		while(1);
 	}
 
-	const size_t LUT_SIZE = round(S_rate / 750);
+	const size_t LUT_SIZE = 1024;
 	int16_t *LUT = pvPortMalloc(LUT_SIZE * sizeof(int16_t));
 	if (!LUT)
 		while(1);
@@ -88,7 +89,7 @@ void cs43l22_sin_tone(double frequency)
 		LUT[i] = (int16_t) round(SHRT_MAX * sin(2.0 * M_PI * (double) i / LUT_SIZE));
 	}
 
-	const int BUFF_SIZE = LUT_SIZE;
+	const int BUFF_SIZE = 4096;
 	int16_t *audio_data = pvPortMalloc(2 * BUFF_SIZE * sizeof(int16_t));
 	if (!audio_data)
 		while(1);
@@ -106,7 +107,6 @@ void cs43l22_sin_tone(double frequency)
 			phase -= (double)LUT_SIZE;
 	}
 
-//	for (int i = 0; i < 5000; i++) {
 	for (;;) {
 		bool ret;
 		do {
@@ -114,13 +114,98 @@ void cs43l22_sin_tone(double frequency)
 		} while(!ret);
 		vTaskDelay(1);
 	}
+}
 
-	vPortFree(audio_data);
+struct wavheader
+{
+    /* RIFF Chunk Descriptor */
+    uint8_t         RIFF[4];        // RIFF Header Magic header
+    uint32_t        ChunkSize;      // RIFF Chunk Size
+    uint8_t         WAVE[4];        // WAVE Header
+    /* "fmt" sub-chunk */
+    uint8_t         fmt[4];         // FMT header
+    uint32_t        Subchunk1Size;  // Size of the fmt chunk
+    uint16_t        AudioFormat;    // Audio format 1=PCM,6=mulaw,7=alaw,     257=IBM Mu-Law, 258=IBM A-Law, 259=ADPCM
+    uint16_t        NumOfChan;      // Number of channels 1=Mono 2=Sterio
+    uint32_t        SamplesPerSec;  // Sampling Frequency in Hz
+    uint32_t        bytesPerSec;    // bytes per second
+    uint16_t        blockAlign;     // 2=16-bit mono, 4=16-bit stereo
+    uint16_t        bitsPerSample;  // Number of bits per sample
+    /* "data" sub-chunk */
+    uint8_t         Subchunk2ID[4]; // "data"  string
+    uint32_t        Subchunk2Size;  // Sampled data length
+};
+
+static void cs43l22_play_content()
+{
+	FATFS FatFs;
+	FRESULT res;
+
+	res = f_mount(&FatFs, "", 1);
+	if (res != FR_OK) {
+		while(1);
+	}
+
+
+	FIL fp;
+again:
+	if (f_open(&fp, "A.wav", FA_READ) != FR_OK) {
+		while(1);
+	}
+
+	struct wavheader wavheader;
+	UINT bytes_read;
+
+	f_read(&fp, (void *) &wavheader, sizeof(struct wavheader), &bytes_read);
+	if (bytes_read != sizeof(struct wavheader))
+		while(1);
+
+	if (wavheader.AudioFormat != 1)
+		while(1);
+
+	if (wavheader.bytesPerSec / wavheader.SamplesPerSec != 2)
+		while(1);
+
+	enum cs43l22_clock clock;
+
+	switch(wavheader.SamplesPerSec) {
+	case 48000:
+		clock = cs43l22_48000;
+		break;
+	case 44100:
+		clock = cs43l22_44100;
+		break;
+	default:
+		while(1);
+	}
+
+	cs43l22_set_clock(clock);
+
+	static size_t buffSize = 4096 * sizeof(int16_t);
+	int16_t *data = pvPortMalloc(buffSize);
+	if (!data)
+		while(1);
+
+	while(1) {
+		f_read(&fp, (void *) data, buffSize, &bytes_read);
+		if (bytes_read == 0) {
+			f_close(&fp);
+			vPortFree(data);
+			goto again;
+		}
+
+                bool ret;
+                do {
+                        ret = DMA_I2S3_write_half_words(data, bytes_read / sizeof(int16_t));
+                } while(!ret);
+		vTaskDelay(1);
+	}
 }
 
 void cs43l22_task(void *pvParameters)
 {
-	cs43l22_sin_tone(1500.0);
+//	cs43l22_sin_tone(1234.5);
+	cs43l22_play_content();
 }
 
 void cs43l22_set_clock(enum cs43l22_clock clock)
