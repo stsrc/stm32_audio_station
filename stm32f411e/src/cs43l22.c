@@ -2,6 +2,7 @@
 #include <stm32f4xx.h>
 #include <math.h>
 #include <limits.h>
+#include <string.h>
 
 #include "FreeRTOS.h"
 #include "task.h"
@@ -51,8 +52,8 @@ void cs43l22_init(void)
 	cs43l22_write_reg(0x02, 0x9E);
 
 	//set volume to sane level
-	cs43l22_write_reg(0x22, 0b11001000);
-	cs43l22_write_reg(0x23, 0b11001000);
+	cs43l22_write_reg(0x22, 0b11011100);
+	cs43l22_write_reg(0x23, 0b11011100);
 }
 
 uint8_t cs43l22_beep(void)
@@ -138,17 +139,28 @@ struct wavheader
 
 static void cs43l22_play_content()
 {
+	bool mono;
+
 	FATFS FatFs;
 	FRESULT res;
-
-	res = f_mount(&FatFs, "", 1);
-	if (res != FR_OK) {
-		while(1);
-	}
-
+	do {
+		res = f_mount(&FatFs, "", 1);
+	} while (res != FR_OK);
 
 	FIL fp;
-again:
+
+	size_t buffSize = 4096 * sizeof(int16_t);
+	int16_t *data = pvPortMalloc(buffSize);
+	if (!data)
+		while(1);
+
+	int16_t *outt = pvPortMalloc(2 * buffSize);
+	if ((uint32_t) outt < 0x1000)
+		while(1); //Why pvPortMalloc returns 0x08 address?
+
+	if (!outt)
+		while(1);
+
 	if (f_open(&fp, "A.wav", FA_READ) != FR_OK) {
 		while(1);
 	}
@@ -164,7 +176,9 @@ again:
 		while(1);
 
 	if (wavheader.bytesPerSec / wavheader.SamplesPerSec != 2)
-		while(1);
+		mono = false;
+	else
+		mono = true;
 
 	enum cs43l22_clock clock;
 
@@ -181,24 +195,42 @@ again:
 
 	cs43l22_set_clock(clock);
 
-	static size_t buffSize = 4096 * sizeof(int16_t);
-	int16_t *data = pvPortMalloc(buffSize);
-	if (!data)
-		while(1);
 
-	while(1) {
-		f_read(&fp, (void *) data, buffSize, &bytes_read);
-		if (bytes_read == 0) {
-			f_close(&fp);
-			vPortFree(data);
-			goto again;
+	if (!mono) {
+		while(1) {
+			f_read(&fp, (void *) data, buffSize, &bytes_read);
+
+			if (bytes_read != buffSize) {
+				f_lseek(&fp, 44);
+			}
+
+	                bool ret;
+	                do {
+	                        ret = DMA_I2S3_write_half_words(data, buffSize / sizeof(int16_t));
+	                } while(!ret);
+
+//			vTaskDelay(1);
 		}
+	} else {
+		while(1) {
+			f_read(&fp, (void *) data, buffSize, &bytes_read);
 
-                bool ret;
-                do {
-                        ret = DMA_I2S3_write_half_words(data, bytes_read / sizeof(int16_t));
-                } while(!ret);
-		vTaskDelay(1);
+			for (size_t i = 0; i < buffSize; i++) {
+				outt[2 * i] = data[i];
+				outt[2 * i + 1] = outt[2 * i];
+			}
+
+	                bool ret;
+	                do {
+	                        ret = DMA_I2S3_write_half_words(outt, 2 * buffSize / sizeof(int16_t));
+	                } while(!ret);
+
+			if (bytes_read != buffSize) {
+				f_lseek(&fp, 44);
+			}
+
+//			vTaskDelay(1);
+		}
 	}
 }
 
