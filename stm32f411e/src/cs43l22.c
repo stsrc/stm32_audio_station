@@ -137,10 +137,63 @@ struct wavheader
     uint32_t        Subchunk2Size;  // Sampled data length
 };
 
+static size_t buffSize = 8192;
+static __IO bool bufferNotRead_0 = false, bufferNotRead_1 = false;
+static int16_t *data_0 = NULL, *data_1 = NULL;
+static size_t read_0, read_1;
+
+static bool cs43l22_buffer_ready(int16_t **ptr, size_t *towrite)
+{
+	if (bufferNotRead_0) {
+		*ptr = data_0;
+		bufferNotRead_0 = false;
+		*towrite = read_0;
+		return true;
+	} else if (bufferNotRead_1) {
+		*ptr = data_1;
+		bufferNotRead_1 = false;
+		*towrite = read_1;
+		return true;
+	} else {
+		*ptr = NULL;
+		*towrite = 0;
+		return false;
+	}
+}
+
+
 static void cs43l22_play_content()
 {
-	bool mono;
+	bool mono = false;
 
+	int16_t *data = NULL;
+	size_t towrite = 0;
+
+	if (!mono) {
+		while(1) {
+	                bool ret;
+			do {
+				vTaskDelay(1);
+				ret = cs43l22_buffer_ready(&data, &towrite);
+			} while(!ret);
+
+	                do {
+	                        ret = DMA_I2S3_write_half_words(data, towrite / sizeof(int16_t));
+	                } while(!ret);
+		}
+	} else {
+		while(1);
+	}
+}
+
+void cs43l22_task(void *pvParameters)
+{
+//	cs43l22_sin_tone(1234.5);
+	cs43l22_play_content();
+}
+
+void cs43l22_task_file_read(void *argument)
+{
 	FATFS FatFs;
 	FRESULT res;
 	do {
@@ -149,24 +202,13 @@ static void cs43l22_play_content()
 
 	FIL fp;
 
-	size_t buffSize = 4096 * sizeof(int16_t);
-	int16_t *data = pvPortMalloc(buffSize);
-	if (!data)
-		while(1);
-
-	int16_t *outt = pvPortMalloc(2 * buffSize);
-	if ((uint32_t) outt < 0x1000)
-		while(1); //Why pvPortMalloc returns 0x08 address?
-
-	if (!outt)
-		while(1);
-
 	if (f_open(&fp, "A.wav", FA_READ) != FR_OK) {
 		while(1);
 	}
 
 	struct wavheader wavheader;
 	UINT bytes_read;
+	bool mono;
 
 	f_read(&fp, (void *) &wavheader, sizeof(struct wavheader), &bytes_read);
 	if (bytes_read != sizeof(struct wavheader))
@@ -195,49 +237,32 @@ static void cs43l22_play_content()
 
 	cs43l22_set_clock(clock);
 
+	data_0 = pvPortMalloc(buffSize);
+	if (!data_0)
+		while(1);
 
-	if (!mono) {
-		while(1) {
-			f_read(&fp, (void *) data, buffSize, &bytes_read);
+	data_1 = pvPortMalloc(buffSize);
+	if (!data_1)
+		while(1);
 
-			if (bytes_read != buffSize) {
-				f_lseek(&fp, 44);
-			}
-
-	                bool ret;
-	                do {
-	                        ret = DMA_I2S3_write_half_words(data, buffSize / sizeof(int16_t));
-	                } while(!ret);
-
-//			vTaskDelay(1);
+	while(1) {
+		while (bufferNotRead_0);
+		f_read(&fp, (void *) data_0, buffSize, &bytes_read);
+		read_0 = bytes_read;
+		if (bytes_read != buffSize) {
+			f_lseek(&fp, 44);
 		}
-	} else {
-		while(1) {
-			f_read(&fp, (void *) data, buffSize, &bytes_read);
+		bufferNotRead_0 = true;
 
-			for (size_t i = 0; i < buffSize; i++) {
-				outt[2 * i] = data[i];
-				outt[2 * i + 1] = outt[2 * i];
-			}
-
-	                bool ret;
-	                do {
-	                        ret = DMA_I2S3_write_half_words(outt, 2 * buffSize / sizeof(int16_t));
-	                } while(!ret);
-
-			if (bytes_read != buffSize) {
-				f_lseek(&fp, 44);
-			}
-
-//			vTaskDelay(1);
+		while(bufferNotRead_1);
+		f_read(&fp, (void *) data_1, buffSize, &bytes_read);
+		read_1 = bytes_read;
+		if (bytes_read != buffSize) {
+			f_lseek(&fp, 44);
 		}
+		bufferNotRead_1 = true;
+
 	}
-}
-
-void cs43l22_task(void *pvParameters)
-{
-//	cs43l22_sin_tone(1234.5);
-	cs43l22_play_content();
 }
 
 void cs43l22_set_clock(enum cs43l22_clock clock)

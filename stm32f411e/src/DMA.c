@@ -26,6 +26,11 @@ void DMA1_Stream5_IRQHandler(void)
 
 }
 
+bool DMA_I2S3_ok(void)
+{
+	return do_new;
+}
+
 static inline void DMA_turn_off(void)
 {
 	DMA1_Stream5->CR &= ~DMA_SxCR_EN; // DMA Stream Disabled
