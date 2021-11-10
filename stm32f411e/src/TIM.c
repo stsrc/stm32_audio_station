@@ -3,6 +3,8 @@
 #include <stdbool.h>
 
 static __IO bool triggered = false;
+static bool on = false;
+
 void TIM2_IRQHandler(void)
 {
 	triggered = true;
@@ -21,14 +23,23 @@ void TIM2_init(void)
 	TIM2->ARR = 48;
 	//CEN is cleared automatically in one-pulse mode, when an update event occurs
 	TIM2->CR1 |= TIM_CR1_CEN; //enable timer
+
+	on = true;
 }
 
 void TIM2_delay_us(uint32_t us)
 {
-	while(us) {
+	while(on && us) {
 		if (triggered) {
 			us--;
 			triggered = false;
 		}
 	}
+}
+
+void TIM2_deinit(void)
+{
+	on = false;
+	TIM2->CR1 &= ~TIM_CR1_CEN;
+//	NVIC_DisableIRQ(TIM2_IRQn); //TODO: Why not?
 }

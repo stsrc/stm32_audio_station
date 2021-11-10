@@ -52,9 +52,7 @@ void lcdTask(void *pvParameters)
 
 int main(void){
 	rcc_init_clock();
-
 	TIM2_init();
-
 	init_blue_led();
 
 	while(0) {
@@ -66,14 +64,14 @@ int main(void){
 
 	TM_ILI9341_Init();
 	xpt2046_Init();
-
+	TIM2_deinit();
 
 	cs43l22_init();
 	DMA_init();
 
 	TaskHandle_t xHandle = NULL;
 //	xTaskCreate(ledTask, "LEDTask", 64, 0, tskIDLE_PRIORITY, &xHandle);
-//	xTaskCreate(lcdTask, "LCDTask", 64, 0, tskIDLE_PRIORITY, &xHandle);
+	xTaskCreate(lcdTask, "LCDTask", 64, 0, tskIDLE_PRIORITY, &xHandle);
 //	xTaskCreate(xpt2046_task, "XPT2046Task", 128, 0, tskIDLE_PRIORITY, &xHandle);
 	xTaskCreate(cs43l22_task_file_read, "cs43l22TaskFileRead", 512, 0, tskIDLE_PRIORITY,
 		    &xHandle);
