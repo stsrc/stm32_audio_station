@@ -15,6 +15,7 @@
 #include "RCC.h"
 
 #include "DMA.h"
+#include "TIM.h"
 
 #define GPIO_setBit(PORT, PIN) (PORT->BSRR |= PIN)
 #define GPIO_clearBit(PORT, PIN) (PORT->BSRR |= (PIN << 0x10))
@@ -51,9 +52,21 @@ void lcdTask(void *pvParameters)
 
 int main(void){
 	rcc_init_clock();
+
+	TIM2_init();
+
+	init_blue_led();
+
+	while(0) {
+		GPIO_setBit(GPIOD, 1 << 15);
+		TIM2_delay_us(1000000);
+		GPIO_clearBit(GPIOD, 1 << 15);
+		TIM2_delay_us(1000000);
+	}
+
 	TM_ILI9341_Init();
 	xpt2046_Init();
-	init_blue_led();
+
 
 	cs43l22_init();
 	DMA_init();

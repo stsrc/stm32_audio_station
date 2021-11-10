@@ -17,7 +17,9 @@
  * |----------------------------------------------------------------------
  */
 #include "tm_ili9341.h"
-
+#include "FreeRTOS.h"
+#include "task.h"
+#include "TIM.h"
 /**
  * @brief  Orientation
  * @note   Used private
@@ -38,14 +40,14 @@ typedef struct {
 } TM_ILI931_Options_t;
 
 /* Pin definitions */
-#define ILI9341_RST_SET		ILI9341_RST_PORT->BSRR |=  ILI9341_RST_PIN
-#define ILI9341_RST_RESET	ILI9341_RST_PORT->BSRR |= (ILI9341_RST_PIN << 0x10)
-#define ILI9341_CS_SET		ILI9341_CS_PORT->BSRR |=  ILI9341_CS_PIN
-#define ILI9341_CS_RESET	ILI9341_CS_PORT->BSRR |= (ILI9341_CS_PIN << 0x10)
-#define ILI9341_WRX_SET		ILI9341_WRX_PORT->BSRR |=  ILI9341_WRX_PIN
-#define ILI9341_WRX_RESET	ILI9341_WRX_PORT->BSRR |= (ILI9341_WRX_PIN << 0x10)
-#define ILI9341_LED_SET		ILI9341_LED_PORT->BSRR |=  ILI9341_LED_PIN
-#define ILI9341_LED_RESET	ILI9341_LED_PORT->BSRR |= (ILI9341_LED_PIN << 0x10)
+#define ILI9341_RST_SET		ILI9341_RST_PORT->BSRR |=  ILI9341_RST_PIN;		TM_ILI9341_Delay(0);
+#define ILI9341_RST_RESET	ILI9341_RST_PORT->BSRR |= (ILI9341_RST_PIN << 0x10);	TM_ILI9341_Delay(0);
+#define ILI9341_CS_SET		ILI9341_CS_PORT->BSRR |=  ILI9341_CS_PIN;		TM_ILI9341_Delay(0);
+#define ILI9341_CS_RESET	ILI9341_CS_PORT->BSRR |= (ILI9341_CS_PIN << 0x10);	TM_ILI9341_Delay(0);
+#define ILI9341_WRX_SET		ILI9341_WRX_PORT->BSRR |=  ILI9341_WRX_PIN;		TM_ILI9341_Delay(0);
+#define ILI9341_WRX_RESET	ILI9341_WRX_PORT->BSRR |= (ILI9341_WRX_PIN << 0x10) ;	TM_ILI9341_Delay(0);
+#define ILI9341_LED_SET		ILI9341_LED_PORT->BSRR |=  ILI9341_LED_PIN;		TM_ILI9341_Delay(0);
+#define ILI9341_LED_RESET	ILI9341_LED_PORT->BSRR |= (ILI9341_LED_PIN << 0x10);	TM_ILI9341_Delay(0);
 
 
 /* Private defines */
@@ -132,6 +134,7 @@ void TM_ILI9341_Init()
 	ILI9341_Opts.orientation = TM_ILI9341_Portrait;
 
 	/* Fill with black color */
+//	TM_ILI9341_Fill(ILI9341_COLOR_BLUE);
 	TM_ILI9341_Fill(ILI9341_COLOR_BLACK);
 }
 
@@ -144,7 +147,7 @@ void TM_ILI9341_InitLCD(void) {
 	/* Delay for RST response */
 	TM_ILI9341_Delay(20000);
 
-	/* Software reset */
+        /* Software reset */
 	TM_ILI9341_SendCommand(ILI9341_RESET);
 	TM_ILI9341_Delay(50000);
 
@@ -328,8 +331,9 @@ void TM_ILI9341_INT_Fill(uint16_t x0, uint16_t y0, uint16_t x1, uint16_t y1, uin
 
 }
 
-void TM_ILI9341_Delay(volatile long unsigned int delay) {
-	for (; delay != 0; delay--);
+void TM_ILI9341_Delay(long unsigned int delay)
+{
+	TIM2_delay_us(delay);
 }
 
 void TM_ILI9341_Rotate(TM_ILI9341_Orientation_t orientation) {
