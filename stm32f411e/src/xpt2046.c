@@ -2,6 +2,7 @@
 #include "FreeRTOS.h"
 #include "task.h"
 #include <stdbool.h>
+#include "display.h"
 #include "tm_ili9341.h"
 
 #ifndef XPT2046_CS_PIN
@@ -136,12 +137,15 @@ int xpt2046_read(uint16_t *x, uint16_t *y, uint16_t *z)
 	cmd = touch_generate_command(&inp);
 	xpt2046_transmit(&cmd, rx, 2);
 	value = touch_generate_short(rx);
-	*x = (uint16_t)(((float) (4095 - value)) / 4095.0 * ((float) ILI9341_WIDTH));
+	*x = 4095 - value;
+	*x = ((float) *x) / 4095.0f * ((float) ILI9341_WIDTH);
+
 	inp.A2 = 0;
 	cmd = touch_generate_command(&inp);
 	xpt2046_transmit(&cmd, rx, 2);
 	value = touch_generate_short(rx);
-	*y = (uint16_t)(((float)value) / 4095.0 * ((float) ILI9341_HEIGHT));
+	*y = value;
+	*y = ((float) *y) / 4095.0f * ((float) ILI9341_HEIGHT);
 
 	uint16_t z1, z2;
 	inp.A1 = 1;
@@ -169,10 +173,8 @@ void xpt2046_task(void *pvParameters)
 		if (touched) {
 			uint16_t x = 0, y = 0, z = 0;
 			xpt2046_read(&x, &y, &z);
-			if (x > 10 && y > 10 && z < 3000) {
-				TM_ILI9341_DrawFilledRectangle(x - 5, y - 5,
-							       x + 5, y + 5,
-							       ILI9341_COLOR_WHITE);
+			if (x > 10 && y > 10 && z < 2000) {
+				display_notify(x, y, z);
 			}
 			touched = false;
 		}
