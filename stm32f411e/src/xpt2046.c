@@ -142,6 +142,22 @@ int xpt2046_read(uint16_t *x, uint16_t *y, uint16_t *z)
 	xpt2046_transmit(&cmd, rx, 2);
 	value = touch_generate_short(rx);
 	*y = (uint16_t)(((float)value) / 4095.0 * ((float) ILI9341_HEIGHT));
+
+	uint16_t z1, z2;
+	inp.A1 = 1;
+	cmd = touch_generate_command(&inp);
+	xpt2046_transmit(&cmd, rx, 2);
+	z1 = touch_generate_short(rx);
+	inp.A2 = 1;
+	inp.A1 = 0;
+	inp.A0 = 0;
+	cmd = touch_generate_command(&inp);
+	xpt2046_transmit(&cmd, rx, 2);
+	z2 = touch_generate_short(rx);
+
+	*z = (uint16_t) (10000.0f * ((float) *x) / 4096.0f * // z value is not in ili9341 scale
+			(((float) z2) / ((float) z1) - 1.0f) + 0.5f);
+
 	xpt2046_InterruptOn();
 
 	return 0;
@@ -153,9 +169,10 @@ void xpt2046_task(void *pvParameters)
 		if (touched) {
 			uint16_t x = 0, y = 0, z = 0;
 			xpt2046_read(&x, &y, &z);
-			if (x > 10 && y > 10) {
-				TM_ILI9341_DrawFilledRectangle(x - 5, y - 5, x + 5, y + 5, ILI9341_COLOR_WHITE);
-
+			if (x > 10 && y > 10 && z < 3000) {
+				TM_ILI9341_DrawFilledRectangle(x - 5, y - 5,
+							       x + 5, y + 5,
+							       ILI9341_COLOR_WHITE);
 			}
 			touched = false;
 		}
