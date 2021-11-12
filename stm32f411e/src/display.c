@@ -1,5 +1,6 @@
 #include "display.h"
 #include "tm_ili9341.h"
+#include "play.h"
 #include <stdbool.h>
 
 static __IO uint16_t x, y, z;
@@ -14,30 +15,34 @@ void display_notify(uint16_t x_, uint16_t y_, uint16_t z_)
 
 static void button_0(void)
 {
+	play_sample("A.wav");
 }
 
 static void button_1(void)
 {
+	play_sample("B.wav");
 }
 
 static void button_2(void)
 {
+	play_sample("C.wav");
 }
 
 static void button_3(void)
 {
+	play_sample("D.wav");
 }
 
 static void display_pressed(uint16_t x, uint16_t y, uint16_t z)
 {
-	if (x < 2048) {
-		if (y < 2048) {
+	if (x < ILI9341_WIDTH / 2) {
+		if (y < ILI9341_HEIGHT / 2) {
 			button_0();
 		} else {
 			button_1();
 		}
 	} else {
-		if (y < 2048) {
+		if (y < ILI9341_HEIGHT / 2) {
 			button_2();
 		} else {
 			button_3();
