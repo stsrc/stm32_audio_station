@@ -127,17 +127,33 @@ static void cs43l22_play_content()
 		while(1) {
 	                bool ret;
 			do {
-				vTaskDelay(1);
+				if (!buffer)
+					vTaskDelay(1);
+
+//				while (buffer && !buffer->readHalf)
+					vTaskDelay(1);
+
 				ret = play_buffer_ready(&buffer);
 			} while(!ret);
 
 	                do {
-	                        ret = DMA_I2S3_write_half_words(buffer->data, buffer->count / sizeof(int16_t));
+	                        ret = DMA_I2S3_write_half_words(buffer->data,
+								buffer->size / sizeof(int16_t));
 	                } while(!ret);
 		}
 	} else {
 		while(1);
 	}
+}
+
+void cs43l22_dma_half_callback(void)
+{
+	if (buffer)
+		buffer->readHalf = true;
+}
+
+void cs43l22_dma_callback(void)
+{
 }
 
 void cs43l22_task(void *pvParameters)

@@ -44,14 +44,8 @@ int main(void){
 	TIM2_init();
 	init_blue_led();
 
-	while(0) {
-		GPIO_setBit(GPIOD, 1 << 15);
-		TIM2_delay_us(1000000);
-		GPIO_clearBit(GPIOD, 1 << 15);
-		TIM2_delay_us(1000000);
-	}
-
 	TM_ILI9341_Init();
+	display_init();
 	xpt2046_Init();
 	TIM2_deinit();
 

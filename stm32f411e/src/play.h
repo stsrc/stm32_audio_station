@@ -5,8 +5,9 @@
 #include <stddef.h>
 struct play_buffer {
 	volatile bool notRead;
+	volatile bool readHalf;
 	int16_t *data;
-	size_t count;
+	size_t size;
 };
 void play_sample(char *name);
 void play_task(void *arg);

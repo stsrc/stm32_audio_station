@@ -5,14 +5,18 @@
 #include <stm32f4xx.h>
 #include <string.h>
 #include "FreeRTOS.h"
+#include "task.h"
 
-static __IO char *sample = "A.wav";
+static __IO char *sample = "B.wav";
 static __IO bool newSample = false;
 
+static __IO char *sample_to_mix = "D.wav";
 
-static size_t buffSize = 8192;
+static size_t buffSize = 4096;
 
-struct play_buffer buffer_0, buffer_1;
+struct play_buffer buffer_out_0, buffer_out_1;
+struct play_buffer buffer_a, buffer_b;
+const int buffer_count = 2;
 
 void play_sample(char *name)
 {
@@ -42,30 +46,72 @@ struct wavheader
     uint32_t        Subchunk2Size;  // Sampled data length
 };
 
+void play_mix(struct play_buffer *a, struct play_buffer *b, struct play_buffer *out)
+{
+	size_t i;
+	size_t a_size = a->size / sizeof(int16_t);
+	size_t b_size = b->size / sizeof(int16_t);
+	size_t out_size = out->size / sizeof(int16_t);
+	for(i = 0;
+	    i < out_size &&
+	    i < a_size &&
+	    i < b_size;
+	    i++) {
+		out->data[i] = a->data[i] / 2 + b->data[i] / 2;
+	}
+
+	for(; i < a_size; i++) {
+		if (i < out_size) {
+			out->data[i] = a->data[i];
+		}
+	}
+
+	for(; i < b_size; i++) {
+		if (i < out_size) {
+			out->data[i] = b->data[i];
+		}
+	}
+}
+
+static void play_buffer_init(struct play_buffer *buffer)
+{
+	memset(buffer, 0, sizeof(struct play_buffer));
+	buffer->size = buffSize;
+	buffer->data = pvPortMalloc(buffer->size);
+	if (!buffer->data)
+		while(1);
+
+	buffer->readHalf = true;
+}
+
 void play_task(void *arg)
 {
 	bool closeFile = false;
 	FATFS FatFs;
 	FRESULT res;
 	FIL fp;
+	FIL fp_to_mix;
 	do {
 		res = f_mount(&FatFs, "", 1);
 	} while (res != FR_OK);
 
-	buffer_0.data = pvPortMalloc(buffSize);
-	if (!buffer_0.data)
-		while(1);
-	buffer_1.data = pvPortMalloc(buffSize);
-	if (!buffer_1.data)
-		while(1);
+	play_buffer_init(&buffer_out_0);
+	play_buffer_init(&buffer_out_1);
+	play_buffer_init(&buffer_a);
+	play_buffer_init(&buffer_b);
 
 new_sample:
 	if (closeFile) {
 		f_close(&fp);
+		f_close(&fp_to_mix);
 		closeFile = false;
 	}
 
 	if (f_open(&fp, (char *) sample, FA_READ) != FR_OK) {
+		while(1);
+	}
+
+	if (f_open(&fp_to_mix, (char *) sample_to_mix, FA_READ) != FR_OK) {
 		while(1);
 	}
 
@@ -103,43 +149,78 @@ new_sample:
 
 	cs43l22_set_clock(clock);
 
+	f_read(&fp_to_mix, (void *) &wavheader, sizeof(struct wavheader), &bytes_read);
+
+	static int i = 0;
+	struct play_buffer *buffer_out = NULL;
+	bool a = true, b = true;
 	while(1) {
-		while (buffer_0.notRead);
-		f_read(&fp, (void *) buffer_0.data, buffSize, &bytes_read);
-		buffer_0.count = bytes_read;
-		buffer_0.notRead = true;
-		if (bytes_read != buffSize) {
-			goto end;
+		if (i == 0) {
+			buffer_out = &buffer_out_0;
+		} else {
+			buffer_out = &buffer_out_1;
 		}
 
-		while(buffer_1.notRead);
-		f_read(&fp, (void *) buffer_1.data, buffSize, &bytes_read);
-		buffer_1.count = bytes_read;
-		buffer_1.notRead = true;
-		if (bytes_read != buffSize) {
+		i = (i + 1) % buffer_count;
+
+		while (buffer_out->notRead) {
+			vTaskDelay(1);
+		}
+
+		if (a) {
+			f_read(&fp, (void *) buffer_a.data, buffer_a.size, &bytes_read);
+			if (bytes_read != buffer_a.size)
+				a = false;
+		} else {
+			memset(buffer_a.data, 0, buffer_a.size);
+		}
+
+		if (b) {
+			f_read(&fp_to_mix, (void *) buffer_b.data, buffer_b.size, &bytes_read);
+			if (bytes_read != buffer_b.size)
+				b = false;
+		} else {
+			memset(buffer_b.data, 0, buffer_b.size);
+		}
+
+		play_mix(&buffer_a, &buffer_b, buffer_out);
+
+		buffer_out->notRead = true;
+		buffer_out->readHalf = false;
+
+		if (a == false && b == false) {
 			goto end;
 		}
 
 		if (newSample) {
 			newSample = false;
 			closeFile = true;
+			a = true;
+			b = true;
 			goto new_sample;
 		}
 	}
 
 end:
 	while(1) {
-		while (buffer_0.notRead);
-		memset((void *) buffer_0.data, 0, buffSize);
-		buffer_0.count = buffSize;
-		buffer_0.notRead = true;
+		if (i == 0) {
+			buffer_out = &buffer_out_0;
+		} else {
+			buffer_out = &buffer_out_1;
+		}
 
-		while(buffer_1.notRead);
-		memset((void *) buffer_1.data, 0, buffSize);
-		buffer_1.count = buffSize;
-		buffer_1.notRead = true;
+		i = (i + 1) % buffer_count;
+
+		while (buffer_out->notRead) {
+			vTaskDelay(1);
+		}
+		memset((void *) buffer_out->data, 0, buffSize);
+		buffer_out->notRead = true;
+		buffer_out->readHalf = false;
 
 		if (newSample) {
+			a = true;
+			b = true;
 			newSample = false;
 			closeFile = true;
 			goto new_sample;
@@ -150,13 +231,13 @@ end:
 
 bool play_buffer_ready(struct play_buffer **buffer)
 {
-	if (buffer_0.notRead) {
-		*buffer = &buffer_0;
-		buffer_0.notRead = false;
+	if (buffer_out_0.notRead) {
+		*buffer = &buffer_out_0;
+		buffer_out_0.notRead = false;
 		return true;
-	} else if (buffer_1.notRead) {
-		*buffer = &buffer_1;
-		buffer_1.notRead = false;
+	} else if (buffer_out_1.notRead) {
+		*buffer = &buffer_out_1;
+		buffer_out_1.notRead = false;
 		return true;
 	} else {
 		*buffer = NULL;

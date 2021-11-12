@@ -49,12 +49,6 @@ void SPI_1_send(uint8_t *data)
 	(void)SPI1->DR;
 }
 
-void SPI_1_DMA_send(uint8_t *data, uint16_t size)
-{
-	for (uint16_t i = 0; i < size; i++)
-		SPI_1_send(data);
-}
-
 void SPI_2_init(void)
 {
 	RCC->AHB1ENR |= RCC_AHB1ENR_GPIOBEN;

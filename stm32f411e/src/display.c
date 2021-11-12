@@ -2,6 +2,8 @@
 #include "tm_ili9341.h"
 #include "play.h"
 #include <stdbool.h>
+#include "FreeRTOS.h"
+#include "task.h"
 
 static __IO uint16_t x, y, z;
 static __IO bool changed = false;
@@ -63,17 +65,17 @@ void display_draw_cross(void)
 			    ILI9341_COLOR_WHITE);
 }
 
-static void display_init(void)
+void display_init(void)
 {
 	display_draw_cross();
 }
 
 void display_task(void *pvParameters)
 {
-
 	display_init();
 
 	while(1) {
+		vTaskDelay(25);
 		if (!changed)
 			continue;
 

@@ -1,11 +1,12 @@
 #include "DMA.h"
 #include <stdbool.h>
+#include "cs43l22.h"
 
 volatile __IO bool do_new = true;
+
 void DMA1_Stream5_IRQHandler(void)
 {
 	uint32_t hisr = DMA1->HISR;
-
 	if (hisr & (1 << 11)) {
 		do_new = true;
 		DMA1->HIFCR |= DMA_HIFCR_CTCIF5 |
@@ -13,12 +14,14 @@ void DMA1_Stream5_IRQHandler(void)
 			       DMA_HIFCR_CTEIF5 |
 			       DMA_HIFCR_CDMEIF5|
 			       DMA_HIFCR_CFEIF5;
+		cs43l22_dma_callback();
 	} else if((hisr & (1 << 6)) || (hisr & (1 << 10))) {
 		DMA1->HIFCR |= DMA_HIFCR_CTCIF5 |
 			       DMA_HIFCR_CHTIF5 |
 			       DMA_HIFCR_CTEIF5 |
 			       DMA_HIFCR_CDMEIF5|
 			       DMA_HIFCR_CFEIF5;
+		cs43l22_dma_half_callback();
 	} else {
 		while(1);
 	}

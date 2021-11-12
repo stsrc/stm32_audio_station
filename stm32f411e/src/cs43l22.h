@@ -15,5 +15,6 @@ enum cs43l22_clock {
 };
 
 void cs43l22_set_clock(enum cs43l22_clock clock);
-
+void cs43l22_dma_half_callback(void);
+void cs43l22_dma_callback(void);
 #endif

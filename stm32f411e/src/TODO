@@ -1,4 +1,5 @@
 1. why cs43l22 fails when generating sin 1500Hz?
 2. why there is some noise on different sampling frequencies?
-4. timeouts in fatfs
-5. NVIC_DisableIRQ(TIM2_IRQn); <-- why it causes something bad (TIM.c)?
+3. timeouts in fatfs
+4. NVIC_DisableIRQ(TIM2_IRQn); <-- why it causes something bad (TIM.c)?
+5. audio turn off after a time

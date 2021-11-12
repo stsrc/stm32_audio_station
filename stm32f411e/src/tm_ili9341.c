@@ -322,13 +322,8 @@ void TM_ILI9341_INT_Fill(uint16_t x0, uint16_t y0, uint16_t x1, uint16_t y1, uin
 		TM_ILI9341_SendData((color & 0xFF00) >> 8);
 		TM_ILI9341_SendData(color & 0x00FF);
 	}
-//	SPI_1_DMA_send((uint8_t *)&color, ( pixels_count > 0xFFFF) ?  0xFFFF : pixels_count);
-
-//	if (pixels_count > 0xFFFF)
-//		SPI_1_DMA_send((uint8_t *)&color, pixels_count - 0xFFFF);
 
 	ILI9341_CS_SET;
-
 }
 
 void TM_ILI9341_Delay(long unsigned int delay)

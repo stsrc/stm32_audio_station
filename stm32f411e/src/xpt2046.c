@@ -178,5 +178,6 @@ void xpt2046_task(void *pvParameters)
 			}
 			touched = false;
 		}
+		vTaskDelay(25);
 	}
 }
