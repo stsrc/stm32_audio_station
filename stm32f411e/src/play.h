@@ -3,8 +3,12 @@
 #include <stdbool.h>
 #include <stdint.h>
 #include <stddef.h>
-
+struct play_buffer {
+	volatile bool notRead;
+	int16_t *data;
+	size_t count;
+};
 void play_sample(char *name);
 void play_task(void *arg);
-bool play_buffer_ready(int16_t **ptr, size_t *towrite);
+bool play_buffer_ready(struct play_buffer **buffer);
 #endif

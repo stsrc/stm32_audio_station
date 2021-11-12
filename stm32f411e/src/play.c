@@ -11,9 +11,8 @@ static __IO bool newSample = false;
 
 
 static size_t buffSize = 8192;
-static __IO bool bufferNotRead_0 = false, bufferNotRead_1 = false;
-static int16_t *data_0 = NULL, *data_1 = NULL;
-static size_t read_0, read_1;
+
+struct play_buffer buffer_0, buffer_1;
 
 void play_sample(char *name)
 {
@@ -52,6 +51,14 @@ void play_task(void *arg)
 	do {
 		res = f_mount(&FatFs, "", 1);
 	} while (res != FR_OK);
+
+	buffer_0.data = pvPortMalloc(buffSize);
+	if (!buffer_0.data)
+		while(1);
+	buffer_1.data = pvPortMalloc(buffSize);
+	if (!buffer_1.data)
+		while(1);
+
 new_sample:
 	if (closeFile) {
 		f_close(&fp);
@@ -96,31 +103,19 @@ new_sample:
 
 	cs43l22_set_clock(clock);
 
-	if (data_0 == NULL) {
-		data_0 = pvPortMalloc(buffSize);
-		if (!data_0)
-			while(1);
-	}
-
-	if (data_1 == NULL) {
-		data_1 = pvPortMalloc(buffSize);
-		if (!data_1)
-			while(1);
-	}
-
 	while(1) {
-		while (bufferNotRead_0);
-		f_read(&fp, (void *) data_0, buffSize, &bytes_read);
-		read_0 = bytes_read;
-		bufferNotRead_0 = true;
+		while (buffer_0.notRead);
+		f_read(&fp, (void *) buffer_0.data, buffSize, &bytes_read);
+		buffer_0.count = bytes_read;
+		buffer_0.notRead = true;
 		if (bytes_read != buffSize) {
 			goto end;
 		}
 
-		while(bufferNotRead_1);
-		f_read(&fp, (void *) data_1, buffSize, &bytes_read);
-		read_1 = bytes_read;
-		bufferNotRead_1 = true;
+		while(buffer_1.notRead);
+		f_read(&fp, (void *) buffer_1.data, buffSize, &bytes_read);
+		buffer_1.count = bytes_read;
+		buffer_1.notRead = true;
 		if (bytes_read != buffSize) {
 			goto end;
 		}
@@ -134,15 +129,15 @@ new_sample:
 
 end:
 	while(1) {
-		while (bufferNotRead_0);
-		memset((void *) data_0, 0, buffSize);
-		read_0 = buffSize;
-		bufferNotRead_0 = true;
+		while (buffer_0.notRead);
+		memset((void *) buffer_0.data, 0, buffSize);
+		buffer_0.count = buffSize;
+		buffer_0.notRead = true;
 
-		while(bufferNotRead_1);
-		memset((void *) data_1, 0, buffSize);
-		read_1 = buffSize;
-		bufferNotRead_1 = true;
+		while(buffer_1.notRead);
+		memset((void *) buffer_1.data, 0, buffSize);
+		buffer_1.count = buffSize;
+		buffer_1.notRead = true;
 
 		if (newSample) {
 			newSample = false;
@@ -153,21 +148,18 @@ end:
 
 }
 
-bool play_buffer_ready(int16_t **ptr, size_t *towrite)
+bool play_buffer_ready(struct play_buffer **buffer)
 {
-	if (bufferNotRead_0) {
-		*ptr = data_0;
-		bufferNotRead_0 = false;
-		*towrite = read_0;
+	if (buffer_0.notRead) {
+		*buffer = &buffer_0;
+		buffer_0.notRead = false;
 		return true;
-	} else if (bufferNotRead_1) {
-		*ptr = data_1;
-		bufferNotRead_1 = false;
-		*towrite = read_1;
+	} else if (buffer_1.notRead) {
+		*buffer = &buffer_1;
+		buffer_1.notRead = false;
 		return true;
 	} else {
-		*ptr = NULL;
-		*towrite = 0;
+		*buffer = NULL;
 		return false;
 	}
 }

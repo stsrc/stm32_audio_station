@@ -17,6 +17,7 @@
 
 #define ADDRESS 0x94
 
+static struct play_buffer *buffer = NULL;
 static enum cs43l22_clock currentClock;
 static double clock[] = { 47991.0714285714, 44108.0729166667, 32001.2019230769 };
 
@@ -122,19 +123,16 @@ static void cs43l22_play_content()
 {
 	bool mono = false;
 
-	int16_t *data = NULL;
-	size_t towrite = 0;
-
 	if (!mono) {
 		while(1) {
 	                bool ret;
 			do {
 				vTaskDelay(1);
-				ret = play_buffer_ready(&data, &towrite);
+				ret = play_buffer_ready(&buffer);
 			} while(!ret);
 
 	                do {
-	                        ret = DMA_I2S3_write_half_words(data, towrite / sizeof(int16_t));
+	                        ret = DMA_I2S3_write_half_words(buffer->data, buffer->count / sizeof(int16_t));
 	                } while(!ret);
 		}
 	} else {
