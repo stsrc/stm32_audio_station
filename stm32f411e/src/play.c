@@ -10,13 +10,15 @@
 static __IO char *sample = "B.wav";
 static __IO bool newSample = false;
 
-static __IO char *sample_to_mix = "D.wav";
+static const char *sample_to_mix = "D.wav";
 
 static size_t buffSize = 4096;
 
 struct play_buffer buffer_out_0, buffer_out_1;
 struct play_buffer buffer_a, buffer_b;
 const int buffer_count = 2;
+
+static bool buffer_0 = true;
 
 void play_sample(char *name)
 {
@@ -46,34 +48,25 @@ struct wavheader
     uint32_t        Subchunk2Size;  // Sampled data length
 };
 
-void play_mix(struct play_buffer *a, struct play_buffer *b, struct play_buffer *out)
+void play_mix(struct play_buffer *a, struct play_buffer *out, bool first)
 {
 	size_t i;
 	size_t a_size = a->size / sizeof(int16_t);
-	size_t b_size = b->size / sizeof(int16_t);
 	size_t out_size = out->size / sizeof(int16_t);
 	for(i = 0;
 	    i < out_size &&
-	    i < a_size &&
-	    i < b_size;
+	    i < a_size;
 	    i++) {
-		out->data[i] = a->data[i] / 2 + b->data[i] / 2;
-	}
-
-	for(; i < a_size; i++) {
-		if (i < out_size) {
-			out->data[i] = a->data[i];
-		}
-	}
-
-	for(; i < b_size; i++) {
-		if (i < out_size) {
-			out->data[i] = b->data[i];
+		if (first) {
+			memcpy(out->data, a->data, a->size);
+			break;
+		} else {
+			out->data[i] = a->data[i] / 2 + out->data[i] / 2;
 		}
 	}
 }
 
-static void play_buffer_init(struct play_buffer *buffer)
+static void play_buffer_init(struct play_buffer *buffer, const char *path)
 {
 	memset(buffer, 0, sizeof(struct play_buffer));
 	buffer->size = buffSize;
@@ -81,45 +74,25 @@ static void play_buffer_init(struct play_buffer *buffer)
 	if (!buffer->data)
 		while(1);
 
+	buffer->notRead = false;
 	buffer->readHalf = true;
-}
+	buffer->readAll = true;
 
-void play_task(void *arg)
-{
-	bool closeFile = false;
-	FATFS FatFs;
-	FRESULT res;
-	FIL fp;
-	FIL fp_to_mix;
-	do {
-		res = f_mount(&FatFs, "", 1);
-	} while (res != FR_OK);
+	buffer->fp_b = false;
 
-	play_buffer_init(&buffer_out_0);
-	play_buffer_init(&buffer_out_1);
-	play_buffer_init(&buffer_a);
-	play_buffer_init(&buffer_b);
+	if (!path)
+		return;
 
-new_sample:
-	if (closeFile) {
-		f_close(&fp);
-		f_close(&fp_to_mix);
-		closeFile = false;
-	}
-
-	if (f_open(&fp, (char *) sample, FA_READ) != FR_OK) {
+	if (f_open(&(buffer->fp), path, FA_READ) != FR_OK)
 		while(1);
-	}
 
-	if (f_open(&fp_to_mix, (char *) sample_to_mix, FA_READ) != FR_OK) {
-		while(1);
-	}
+	buffer->fp_b = true;
 
 	struct wavheader wavheader;
 	UINT bytes_read;
 	bool mono;
 
-	f_read(&fp, (void *) &wavheader, sizeof(struct wavheader), &bytes_read);
+	f_read(&buffer->fp, (void *) &wavheader, sizeof(struct wavheader), &bytes_read);
 	if (bytes_read != sizeof(struct wavheader))
 		while(1);
 
@@ -148,13 +121,46 @@ new_sample:
 	}
 
 	cs43l22_set_clock(clock);
+}
 
-	f_read(&fp_to_mix, (void *) &wavheader, sizeof(struct wavheader), &bytes_read);
+static void play_buffer_deinit(struct play_buffer *buffer)
+{
+	if (buffer->data)
+		vPortFree(buffer->data);
 
-	static int i = 0;
+	if (buffer->fp_b)
+		f_close(&buffer->fp);
+}
+
+void play_task(void *arg)
+{
+	UINT bytes_read;
+	bool first = true;
+	FATFS FatFs;
+	FRESULT res;
+	do {
+		res = f_mount(&FatFs, "", 1);
+	} while (res != FR_OK);
+
+new_sample:
+	buffer_0 = true;
+	if (!first) {
+		play_buffer_deinit(&buffer_out_0);
+		play_buffer_deinit(&buffer_out_1);
+		play_buffer_deinit(&buffer_a);
+		play_buffer_deinit(&buffer_b);
+	}
+	first = false;
+	play_buffer_init(&buffer_out_0, NULL);
+	play_buffer_init(&buffer_out_1, NULL);
+	play_buffer_init(&buffer_a, (const char *) sample);
+	play_buffer_init(&buffer_b, sample_to_mix);
+
+
+	int i = 0;
 	struct play_buffer *buffer_out = NULL;
-	bool a = true, b = true;
-	while(1) {
+	bool loop_a = true, loop_b = true;
+	while(loop_a || loop_b) {
 		if (i == 0) {
 			buffer_out = &buffer_out_0;
 		} else {
@@ -163,45 +169,49 @@ new_sample:
 
 		i = (i + 1) % buffer_count;
 
-		while (buffer_out->notRead) {
+		while (buffer_out->notRead || !buffer_out->readAll) {
 			vTaskDelay(1);
 		}
 
-		if (a) {
-			f_read(&fp, (void *) buffer_a.data, buffer_a.size, &bytes_read);
-			if (bytes_read != buffer_a.size)
-				a = false;
-		} else {
-			memset(buffer_a.data, 0, buffer_a.size);
-		}
+		for (int i = 0; i < 2; i++) {
+			struct play_buffer *buffer;
+			bool firstLoop = true;
+			if (i == 0) {
+				firstLoop = true;
+				buffer = &buffer_a;
+			} else {
+				firstLoop = false;
+				buffer = &buffer_b;
+			}
 
-		if (b) {
-			f_read(&fp_to_mix, (void *) buffer_b.data, buffer_b.size, &bytes_read);
-			if (bytes_read != buffer_b.size)
-				b = false;
-		} else {
-			memset(buffer_b.data, 0, buffer_b.size);
-		}
+			if (((i == 0) && (loop_a == true)) || ((i == 1) && (loop_b == true))) {
+				f_read(&buffer->fp, (void *) buffer->data, buffer->size, &bytes_read);
+			} else {
+				memset(buffer->data, 0, buffer->size);
+				bytes_read = buffer->size;
+			}
 
-		play_mix(&buffer_a, &buffer_b, buffer_out);
+			if (bytes_read != buffer->size) {
+				if (i == 0) {
+					loop_a = false;
+				} else {
+					loop_b = false;
+				}
+			}
+
+			play_mix(buffer, buffer_out, firstLoop);
+		}
 
 		buffer_out->notRead = true;
 		buffer_out->readHalf = false;
-
-		if (a == false && b == false) {
-			goto end;
-		}
+		buffer_out->readAll = false;
 
 		if (newSample) {
 			newSample = false;
-			closeFile = true;
-			a = true;
-			b = true;
 			goto new_sample;
 		}
 	}
 
-end:
 	while(1) {
 		if (i == 0) {
 			buffer_out = &buffer_out_0;
@@ -211,18 +221,17 @@ end:
 
 		i = (i + 1) % buffer_count;
 
-		while (buffer_out->notRead) {
+		while (buffer_out->notRead || !buffer_out->readAll) {
 			vTaskDelay(1);
 		}
+
 		memset((void *) buffer_out->data, 0, buffSize);
 		buffer_out->notRead = true;
 		buffer_out->readHalf = false;
+		buffer_out->readAll = false;
 
 		if (newSample) {
-			a = true;
-			b = true;
 			newSample = false;
-			closeFile = true;
 			goto new_sample;
 		}
 	}
@@ -231,16 +240,21 @@ end:
 
 bool play_buffer_ready(struct play_buffer **buffer)
 {
-	if (buffer_out_0.notRead) {
-		*buffer = &buffer_out_0;
-		buffer_out_0.notRead = false;
-		return true;
-	} else if (buffer_out_1.notRead) {
-		*buffer = &buffer_out_1;
-		buffer_out_1.notRead = false;
-		return true;
+	if (buffer_0) {
+		if (buffer_out_0.notRead) {
+			*buffer = &buffer_out_0;
+			buffer_out_0.notRead = false;
+			buffer_0 = false;
+			return true;
+		}
 	} else {
-		*buffer = NULL;
-		return false;
+		if (buffer_out_1.notRead) {
+			*buffer = &buffer_out_1;
+			buffer_out_1.notRead = false;
+			buffer_0 = true;
+			return true;
+		}
 	}
+	*buffer = NULL;
+	return false;
 }

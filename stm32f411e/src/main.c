@@ -47,7 +47,6 @@ int main(void){
 	TM_ILI9341_Init();
 	display_init();
 	xpt2046_Init();
-	TIM2_deinit();
 
 	cs43l22_init();
 	DMA_init();
@@ -56,9 +55,9 @@ int main(void){
 	xTaskCreate(ledTask, "LEDTask", 64, 0, tskIDLE_PRIORITY, &xHandle);
 	xTaskCreate(xpt2046_task, "XPT2046Task", 128, 0, tskIDLE_PRIORITY, &xHandle);
 	xTaskCreate(display_task, "displayTask", 128, 0, tskIDLE_PRIORITY, &xHandle);
-	xTaskCreate(play_task, "playTask", 512, 0, tskIDLE_PRIORITY,
+	xTaskCreate(play_task, "playTask", 512, 0, tskIDLE_PRIORITY + 1,
 		    &xHandle);
-	xTaskCreate(cs43l22_task, "cs43l22Task", 512, 0, tskIDLE_PRIORITY + 1, &xHandle);
+	xTaskCreate(cs43l22_task, "cs43l22Task", 512, 0, tskIDLE_PRIORITY + 2, &xHandle);
 
 	vTaskStartScheduler();
 

@@ -2,4 +2,4 @@
 2. why there is some noise on different sampling frequencies?
 3. timeouts in fatfs
 4. NVIC_DisableIRQ(TIM2_IRQn); <-- why it causes something bad (TIM.c)?
-5. audio turn off after a time
+5. why in mix audio is on left channel, once on right?

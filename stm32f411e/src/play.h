@@ -3,9 +3,14 @@
 #include <stdbool.h>
 #include <stdint.h>
 #include <stddef.h>
+#include "fatfs/ff.h"
+
 struct play_buffer {
+	FIL fp;
+	bool fp_b;
 	volatile bool notRead;
 	volatile bool readHalf;
+	volatile bool readAll;
 	int16_t *data;
 	size_t size;
 };

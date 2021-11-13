@@ -20,7 +20,7 @@ void TIM2_init(void)
 
 	TIM2->DIER |= TIM_DIER_UIE; // Update interrupt enable
 	TIM2->EGR |= TIM_EGR_UG;
-	TIM2->ARR = 48;
+	TIM2->ARR = 48000;
 	//CEN is cleared automatically in one-pulse mode, when an update event occurs
 	TIM2->CR1 |= TIM_CR1_CEN; //enable timer
 
@@ -31,7 +31,10 @@ void TIM2_delay_us(uint32_t us)
 {
 	while(on && us) {
 		if (triggered) {
-			us--;
+			if (us < 1000)
+				us = 0;
+			else
+				us -= 1000;
 			triggered = false;
 		}
 	}

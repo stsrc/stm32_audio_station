@@ -17,7 +17,7 @@
 
 #define ADDRESS 0x94
 
-static struct play_buffer *buffer = NULL;
+static struct play_buffer *buffer = NULL, *oldBuffer = NULL;
 static enum cs43l22_clock currentClock;
 static double clock[] = { 47991.0714285714, 44108.0729166667, 32001.2019230769 };
 
@@ -130,8 +130,11 @@ static void cs43l22_play_content()
 				if (!buffer)
 					vTaskDelay(1);
 
-//				while (buffer && !buffer->readHalf)
+				while (buffer && !buffer->readHalf)
 					vTaskDelay(1);
+
+				if (buffer)
+					oldBuffer = buffer;
 
 				ret = play_buffer_ready(&buffer);
 			} while(!ret);
@@ -154,6 +157,8 @@ void cs43l22_dma_half_callback(void)
 
 void cs43l22_dma_callback(void)
 {
+	if (oldBuffer)
+		oldBuffer->readAll = true;
 }
 
 void cs43l22_task(void *pvParameters)
