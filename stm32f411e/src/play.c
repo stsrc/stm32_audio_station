@@ -6,6 +6,7 @@
 #include <string.h>
 #include "FreeRTOS.h"
 #include "task.h"
+#include <stdlib.h>
 
 static __IO char *sample = "B.wav";
 static __IO bool newSample = false;
@@ -78,15 +79,13 @@ static void play_buffer_init(struct play_buffer *buffer, const char *path)
 	buffer->readHalf = true;
 	buffer->readAll = true;
 
-	buffer->fp_b = false;
-
 	if (!path)
 		return;
 
-	if (f_open(&(buffer->fp), path, FA_READ) != FR_OK)
-		while(1);
+	buffer->fileName = strdup(path);
 
-	buffer->fp_b = true;
+	if (f_open(&(buffer->fp), buffer->fileName, FA_READ) != FR_OK)
+		while(1);
 
 	struct wavheader wavheader;
 	UINT bytes_read;
@@ -123,43 +122,55 @@ static void play_buffer_init(struct play_buffer *buffer, const char *path)
 	cs43l22_set_clock(clock);
 }
 
+/*
 static void play_buffer_deinit(struct play_buffer *buffer)
 {
 	if (buffer->data)
 		vPortFree(buffer->data);
 
-	if (buffer->fp_b)
+	if (buffer->fileName) {
 		f_close(&buffer->fp);
+		free(buffer->fileName);
+	}
 }
+*/
 
 void play_task(void *arg)
 {
 	UINT bytes_read;
-	bool first = true;
 	FATFS FatFs;
 	FRESULT res;
 	do {
 		res = f_mount(&FatFs, "", 1);
 	} while (res != FR_OK);
 
-new_sample:
+
 	buffer_0 = true;
-	if (!first) {
-		play_buffer_deinit(&buffer_out_0);
-		play_buffer_deinit(&buffer_out_1);
-		play_buffer_deinit(&buffer_a);
-		play_buffer_deinit(&buffer_b);
-	}
-	first = false;
 	play_buffer_init(&buffer_out_0, NULL);
 	play_buffer_init(&buffer_out_1, NULL);
 	play_buffer_init(&buffer_a, (const char *) sample);
 	play_buffer_init(&buffer_b, sample_to_mix);
 
-
 	int i = 0;
 	struct play_buffer *buffer_out = NULL;
 	bool loop_a = true, loop_b = true;
+new_sample:
+	if (strcmp(buffer_a.fileName, (const char *) sample)) {
+		f_close(&buffer_a.fp);
+		free(buffer_a.fileName);
+		buffer_a.fileName = strdup((const char *) sample);
+		if (f_open(&buffer_a.fp, buffer_a.fileName, FA_READ) != FR_OK)
+			while(1);
+		f_lseek(&buffer_a.fp, sizeof(struct wavheader));
+	} else {
+		f_lseek(&buffer_a.fp, sizeof(struct wavheader));
+	}
+
+	f_lseek(&buffer_b.fp, sizeof(struct wavheader));
+
+	loop_a = true;
+	loop_b = true;
+
 	while(loop_a || loop_b) {
 		if (i == 0) {
 			buffer_out = &buffer_out_0;

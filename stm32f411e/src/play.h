@@ -7,7 +7,7 @@
 
 struct play_buffer {
 	FIL fp;
-	bool fp_b;
+	char *fileName;
 	volatile bool notRead;
 	volatile bool readHalf;
 	volatile bool readAll;
