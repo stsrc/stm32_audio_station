@@ -17,6 +17,7 @@ static size_t buffSize = 4096;
 
 struct play_buffer buffer_out_0, buffer_out_1;
 struct play_buffer buffer_a, buffer_b;
+struct play_buffer buffer_main;
 const int buffer_count = 2;
 
 static bool buffer_0 = true;
@@ -59,8 +60,7 @@ void play_mix(struct play_buffer *a, struct play_buffer *out, bool first)
 	    i < a_size;
 	    i++) {
 		if (first) {
-			memcpy(out->data, a->data, a->size);
-			break;
+			out->data[i] = a->data[i] / 2;
 		} else {
 			out->data[i] = a->data[i] / 2 + out->data[i] / 2;
 		}
@@ -153,7 +153,7 @@ void play_task(void *arg)
 
 	int i = 0;
 	struct play_buffer *buffer_out = NULL;
-	bool loop_a = true, loop_b = true;
+	bool loop = true;
 new_sample:
 	if (strcmp(buffer_a.fileName, (const char *) sample)) {
 		f_close(&buffer_a.fp);
@@ -168,10 +168,13 @@ new_sample:
 
 	f_lseek(&buffer_b.fp, sizeof(struct wavheader));
 
-	loop_a = true;
-	loop_b = true;
-
-	while(loop_a || loop_b) {
+	loop = true;
+	buffer_main.prev = NULL;
+	buffer_main.next = &buffer_a;
+	buffer_a.prev = &buffer_main;
+	buffer_a.next = &buffer_b;
+	buffer_b.prev = &buffer_a;
+	while(loop) {
 		if (i == 0) {
 			buffer_out = &buffer_out_0;
 		} else {
@@ -184,33 +187,27 @@ new_sample:
 			vTaskDelay(1);
 		}
 
-		for (int i = 0; i < 2; i++) {
-			struct play_buffer *buffer;
-			bool firstLoop = true;
-			if (i == 0) {
-				firstLoop = true;
-				buffer = &buffer_a;
-			} else {
-				firstLoop = false;
-				buffer = &buffer_b;
-			}
-
-			if (((i == 0) && (loop_a == true)) || ((i == 1) && (loop_b == true))) {
-				f_read(&buffer->fp, (void *) buffer->data, buffer->size, &bytes_read);
-			} else {
-				memset(buffer->data, 0, buffer->size);
-				bytes_read = buffer->size;
-			}
-
+		struct play_buffer *buffer = buffer_main.next;
+		bool firstLoop;
+		firstLoop = true;
+		while(buffer) {
+			f_read(&buffer->fp, (void *) buffer->data, buffer->size, &bytes_read);
 			if (bytes_read != buffer->size) {
-				if (i == 0) {
-					loop_a = false;
-				} else {
-					loop_b = false;
+				struct play_buffer *buf = buffer_main.next;
+				while (buf) {
+					if (buf == buffer) {
+						buf->prev->next = buffer->next;
+						buffer->next->prev = buffer->prev;
+						break;
+					} else {
+						buf = buf->next;
+					}
 				}
 			}
 
 			play_mix(buffer, buffer_out, firstLoop);
+			firstLoop = false;
+			buffer = buffer->next;
 		}
 
 		buffer_out->notRead = true;
@@ -221,6 +218,9 @@ new_sample:
 			newSample = false;
 			goto new_sample;
 		}
+
+		if (buffer_main.next == NULL)
+			loop = false;
 	}
 
 	while(1) {

@@ -13,6 +13,8 @@ struct play_buffer {
 	volatile bool readAll;
 	int16_t *data;
 	size_t size;
+	struct play_buffer *next;
+	struct play_buffer *prev;
 };
 void play_sample(char *name);
 void play_task(void *arg);
