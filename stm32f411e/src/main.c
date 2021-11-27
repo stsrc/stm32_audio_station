@@ -18,6 +18,7 @@
 #include "TIM.h"
 #include "display.h"
 #include "play.h"
+#include "metronome.h"
 
 #define GPIO_setBit(PORT, PIN) (PORT->BSRR |= PIN)
 #define GPIO_clearBit(PORT, PIN) (PORT->BSRR |= (PIN << 0x10))
@@ -51,6 +52,8 @@ int main(void){
 	cs43l22_init();
 	DMA_init();
 
+	metronome_init(150);
+
 	TaskHandle_t xHandle = NULL;
 	xTaskCreate(ledTask, "LEDTask", 64, 0, tskIDLE_PRIORITY, &xHandle);
 	xTaskCreate(xpt2046_task, "XPT2046Task", 128, 0, tskIDLE_PRIORITY, &xHandle);
@@ -58,6 +61,8 @@ int main(void){
 	xTaskCreate(play_task, "playTask", 512, 0, tskIDLE_PRIORITY + 1,
 		    &xHandle);
 	xTaskCreate(cs43l22_task, "cs43l22Task", 512, 0, tskIDLE_PRIORITY + 2, &xHandle);
+
+	xTaskCreate(metronome_task, "metronomeTask", 512, 0, tskIDLE_PRIORITY + 1, &xHandle);
 
 	vTaskStartScheduler();
 
