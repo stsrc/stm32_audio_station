@@ -7,6 +7,10 @@
 
 static __IO uint16_t x, y, z;
 static __IO bool changed = false;
+
+static bool button_pushed = false;
+static const char *button_filename = NULL;
+
 void display_notify(uint16_t x_, uint16_t y_, uint16_t z_)
 {
 	changed = true;
@@ -15,24 +19,40 @@ void display_notify(uint16_t x_, uint16_t y_, uint16_t z_)
 	z = z_;
 }
 
+void display_get_button(const char **ptr)
+{
+	if (button_pushed) {
+		button_pushed = false;
+		*ptr = button_filename;
+	} else {
+		*ptr = NULL;
+	}
+}
+
+static void display_button_pushed(const char *filename)
+{
+	button_pushed = true;
+	button_filename = filename;
+}
+
 static void button_0(void)
 {
-	play_sample("A.wav");
+	display_button_pushed("A.wav");
 }
 
 static void button_1(void)
 {
-	play_sample("B.wav");
+	display_button_pushed("B.wav");
 }
 
 static void button_2(void)
 {
-	play_sample("C.wav");
+	display_button_pushed("C.wav");
 }
 
 static void button_3(void)
 {
-	play_sample("D.wav");
+	display_button_pushed("D.wav");
 }
 
 static void display_pressed(uint16_t x, uint16_t y, uint16_t z)

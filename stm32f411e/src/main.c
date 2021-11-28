@@ -52,7 +52,7 @@ int main(void){
 	cs43l22_init();
 	DMA_init();
 
-	metronome_init(150);
+	metronome_init(90);
 
 	TaskHandle_t xHandle = NULL;
 	xTaskCreate(ledTask, "LEDTask", 64, 0, tskIDLE_PRIORITY, &xHandle);
@@ -62,7 +62,7 @@ int main(void){
 		    &xHandle);
 	xTaskCreate(cs43l22_task, "cs43l22Task", 512, 0, tskIDLE_PRIORITY + 2, &xHandle);
 
-	xTaskCreate(metronome_task, "metronomeTask", 512, 0, tskIDLE_PRIORITY + 1, &xHandle);
+	xTaskCreate(metronome_task, "metronomeTask", 512, 0, tskIDLE_PRIORITY + 3, &xHandle);
 
 	vTaskStartScheduler();
 
