@@ -30,6 +30,7 @@ void metronome_task(void *arg)
 	while(1) {
 		for (int i = 0; i < 4; i++) {
 			play_sample("tick.wav");
+
 			for (int j = 0; j < 16; j++) {
 				const char *sound = NULL;
 				display_get_button(&sound);

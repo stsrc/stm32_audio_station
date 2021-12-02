@@ -11,6 +11,7 @@ struct play_buffer {
 	volatile bool notRead;
 	volatile bool readHalf;
 	volatile bool readAll;
+	bool opened;
 	int16_t *data;
 	size_t size;
 	struct play_buffer *next;

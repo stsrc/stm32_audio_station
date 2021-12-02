@@ -8,7 +8,7 @@
 static __IO uint16_t x, y, z;
 static __IO bool changed = false;
 
-static bool button_pushed = false;
+static __IO bool button_pushed = false;
 static const char *button_filename = NULL;
 
 void display_notify(uint16_t x_, uint16_t y_, uint16_t z_)

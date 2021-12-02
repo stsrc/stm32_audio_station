@@ -9,7 +9,6 @@
 #include <stdlib.h>
 
 static __IO bool newSample = false;
-static __IO char *samplename;
 static size_t buffSize = 4096;
 
 struct play_buffer buffer_out_0, buffer_out_1;
@@ -55,25 +54,12 @@ void play_mix(struct play_buffer *a, struct play_buffer *out, bool first)
 	}
 }
 
-static void play_buffer_init(struct play_buffer *buffer, const char *path, bool initClock)
+static void play_buffer_init_fs(struct play_buffer *buffer, bool initClock)
 {
-	memset(buffer, 0, sizeof(struct play_buffer));
-	buffer->size = buffSize;
-	buffer->data = pvPortMalloc(buffer->size);
-	if (!buffer->data)
-		while(1);
-
-	buffer->notRead = false;
-	buffer->readHalf = true;
-	buffer->readAll = true;
-
-	if (!path)
-		return;
-
-	buffer->fileName = strdup(path);
-
 	if (f_open(&(buffer->fp), buffer->fileName, FA_READ) != FR_OK)
 		while(1);
+
+	buffer->opened = true;
 
 	struct wavheader wavheader;
 	UINT bytes_read;
@@ -111,13 +97,41 @@ static void play_buffer_init(struct play_buffer *buffer, const char *path, bool 
 	}
 
 	cs43l22_set_clock(clock);
+
+}
+
+static void play_buffer_init(struct play_buffer *buffer)
+{
+	memset(buffer, 0, sizeof(struct play_buffer));
+	buffer->size = buffSize;
+	buffer->data = pvPortMalloc(buffer->size);
+	if (!buffer->data)
+		while(1);
+
+	buffer->notRead = false;
+	buffer->readHalf = true;
+	buffer->readAll = true;
 }
 
 void play_sample(char *name)
 {
+	struct play_buffer *bfr = (struct play_buffer *) &(buffer_main);
 	if (name) {
 		newSample = true;
-		samplename = name;
+
+		while(bfr->next)
+			bfr = bfr->next;
+
+		struct play_buffer *buffer = pvPortMalloc(sizeof(struct play_buffer));
+		if (!buffer)
+			while(1);
+
+		play_buffer_init(buffer);
+
+		buffer->fileName = strdup(name);
+
+		bfr->next = buffer;
+		buffer->prev = bfr;
 	}
 }
 
@@ -149,8 +163,8 @@ void play_task(void *arg)
 	} while (res != FR_OK);
 
 	buffer_0 = true;
-	play_buffer_init(&buffer_out_0, NULL, false);
-	play_buffer_init(&buffer_out_1, NULL, false);
+	play_buffer_init(&buffer_out_0);
+	play_buffer_init(&buffer_out_1);
 
 	int i = 0;
 	struct play_buffer *buffer_out = NULL;
@@ -164,17 +178,13 @@ void play_task(void *arg)
 
 new_sample:
 	bfr = (struct play_buffer *) &buffer_main;
-
-	while(bfr->next)
+	bfr = bfr->next;
+	while (bfr)
+	{
+		if (!bfr->opened)
+			play_buffer_init_fs(bfr, false);
 		bfr = bfr->next;
-
-	struct play_buffer *buffer = pvPortMalloc(sizeof(struct play_buffer));
-	if (!buffer)
-		while(1);
-
-	play_buffer_init(buffer, (const char *) samplename, false);
-	bfr->next = buffer;
-	buffer->prev = bfr;
+	}
 
 loop:
 	while(buffer_main.next) {
@@ -191,30 +201,24 @@ loop:
 		}
 
 		struct play_buffer *buffer = buffer_main.next;
-		bool firstLoop;
-		firstLoop = true;
+		bool firstLoop = true;
 		while(buffer) {
 			bool deinitBuffer = false;
 			struct play_buffer *bufferToDeinit = NULL;
-			f_read(&buffer->fp, (void *) buffer->data, buffer->size, &bytes_read);
-			if (bytes_read != buffer->size) {
-				struct play_buffer *buf = buffer_main.next;
-				while (buf) {
-					if (buf == buffer) {
-						buf->prev->next = buffer->next;
+			if (buffer->opened) {
+				f_read(&buffer->fp, (void *) buffer->data, buffer->size, &bytes_read);
+				if (bytes_read != buffer->size) {
+					buffer->prev->next = buffer->next;
+					if (buffer->next) {
 						buffer->next->prev = buffer->prev;
-						deinitBuffer = true;
-						bufferToDeinit = buf;
-						//play_buffer_deinit(buf);
-						break;
-					} else {
-						buf = buf->next;
 					}
+					deinitBuffer = true;
+					bufferToDeinit = buffer;
 				}
-			}
 
-			play_mix(buffer, buffer_out, firstLoop);
-			firstLoop = false;
+				play_mix(buffer, buffer_out, firstLoop);
+				firstLoop = false;
+			}
 			buffer = buffer->next;
 
 			if (deinitBuffer && bufferToDeinit) {
