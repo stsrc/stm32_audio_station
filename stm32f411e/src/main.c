@@ -19,6 +19,7 @@
 #include "display.h"
 #include "play.h"
 #include "metronome.h"
+#include "ADC.h"
 
 #define GPIO_setBit(PORT, PIN) (PORT->BSRR |= PIN)
 #define GPIO_clearBit(PORT, PIN) (PORT->BSRR |= (PIN << 0x10))
@@ -53,6 +54,10 @@ int main(void){
 	DMA_init();
 
 	metronome_init(90);
+
+	ADC_init();
+	ADC_probe();
+	ADC_result();
 
 	TaskHandle_t xHandle = NULL;
 	xTaskCreate(ledTask, "LEDTask", 64, 0, tskIDLE_PRIORITY, &xHandle);
