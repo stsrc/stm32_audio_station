@@ -63,11 +63,9 @@ int main(void){
 	xTaskCreate(ledTask, "LEDTask", 64, 0, tskIDLE_PRIORITY, &xHandle);
 	xTaskCreate(xpt2046_task, "XPT2046Task", 128, 0, tskIDLE_PRIORITY, &xHandle);
 	xTaskCreate(display_task, "displayTask", 128, 0, tskIDLE_PRIORITY, &xHandle);
-	xTaskCreate(play_task, "playTask", 512, 0, tskIDLE_PRIORITY + 1,
-		    &xHandle);
-	xTaskCreate(cs43l22_task, "cs43l22Task", 512, 0, tskIDLE_PRIORITY + 2, &xHandle);
-
-	xTaskCreate(metronome_task, "metronomeTask", 512, 0, tskIDLE_PRIORITY + 3, &xHandle);
+	xTaskCreate(metronome_task, "metronomeTask", 512, 0, tskIDLE_PRIORITY + 1, &xHandle);
+	xTaskCreate(play_task, "playTask", 512, 0, tskIDLE_PRIORITY + 2, &xHandle);
+	xTaskCreate(cs43l22_task, "cs43l22Task", 512, 0, tskIDLE_PRIORITY + 3, &xHandle);
 
 	vTaskStartScheduler();
 
