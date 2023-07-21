@@ -17,7 +17,8 @@
 
 #define ADDRESS 0x94
 
-static struct play_buffer *buffer = NULL, *oldBuffer = NULL;
+static TaskHandle_t xTaskToNotify = NULL;
+static struct play_buffer *buffer = NULL;
 static enum cs43l22_clock currentClock;
 static double clock[] = { 47991.0714285714, 44108.0729166667, 32001.2019230769 };
 
@@ -123,18 +124,14 @@ static void cs43l22_play_content()
 {
 	bool mono = false;
 
+	xTaskToNotify = xTaskGetCurrentTaskHandle();
+
 	if (!mono) {
 		while(1) {
 	                bool ret;
 			do {
 				if (!buffer)
 					vTaskDelay(1);
-
-				while (buffer && !buffer->readHalf)
-					vTaskDelay(1);
-
-				if (buffer)
-					oldBuffer = buffer;
 
 				ret = play_buffer_ready(&buffer);
 			} while(!ret);
@@ -143,6 +140,7 @@ static void cs43l22_play_content()
 	                        ret = DMA_I2S3_write_half_words(buffer->data,
 								buffer->size / sizeof(int16_t));
 	                } while(!ret);
+			ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
 		}
 	} else {
 		while(1);
@@ -155,10 +153,18 @@ void cs43l22_dma_half_callback(void)
 		buffer->readHalf = true;
 }
 
-void cs43l22_dma_callback(void)
+BaseType_t cs43l22_dma_callback(void)
 {
-	if (oldBuffer)
-		oldBuffer->readAll = true;
+	BaseType_t xHigherPriorityTaskWoken = pdFALSE;
+
+	if (buffer)
+		buffer->readAll = true;
+
+	if (xTaskToNotify) {
+		vTaskNotifyGiveFromISR(xTaskToNotify, &xHigherPriorityTaskWoken);
+	}
+
+	return xHigherPriorityTaskWoken;
 }
 
 void cs43l22_task(void *pvParameters)

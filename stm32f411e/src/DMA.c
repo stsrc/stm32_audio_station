@@ -7,6 +7,7 @@ volatile __IO bool do_new = true;
 void DMA1_Stream5_IRQHandler(void)
 {
 	uint32_t hisr = DMA1->HISR;
+	BaseType_t xHigherPriorityTaskWoken = pdFALSE;
 	if (hisr & (1 << 11)) {
 		do_new = true;
 		DMA1->HIFCR |= DMA_HIFCR_CTCIF5 |
@@ -14,7 +15,7 @@ void DMA1_Stream5_IRQHandler(void)
 			       DMA_HIFCR_CTEIF5 |
 			       DMA_HIFCR_CDMEIF5|
 			       DMA_HIFCR_CFEIF5;
-		cs43l22_dma_callback();
+		xHigherPriorityTaskWoken = cs43l22_dma_callback();
 	} else if((hisr & (1 << 6)) || (hisr & (1 << 10))) {
 		DMA1->HIFCR |= DMA_HIFCR_CTCIF5 |
 			       DMA_HIFCR_CHTIF5 |
@@ -26,7 +27,7 @@ void DMA1_Stream5_IRQHandler(void)
 		while(1);
 	}
 
-
+	portYIELD_FROM_ISR(xHigherPriorityTaskWoken);
 }
 
 bool DMA_I2S3_ok(void)
@@ -52,7 +53,7 @@ void DMA_init(void)
 
 	DMA_turn_off();
 
-	NVIC_SetPriority(DMA1_Stream5_IRQn, 0x00);
+	NVIC_SetPriority(DMA1_Stream5_IRQn, 8);
 	NVIC_EnableIRQ(DMA1_Stream5_IRQn);
 
 	DMA1_Stream5->CR |= DMA_SxCR_MSIZE_0; // Memory data size = halfword
