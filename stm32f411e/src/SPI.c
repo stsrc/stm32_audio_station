@@ -1,4 +1,5 @@
 #include "SPI.h"
+#include "DMA.h"
 #include <assert.h>
 
 int SPI_1_init(void)
@@ -135,6 +136,8 @@ void SPI_4_init(void)
 	SPI4->CR1 |= SPI_CR1_SSI;
 	SPI4->CR1 |= SPI_CR1_MSTR;
 	SPI4->CR1 |= SPI_CR1_SPE;
+
+	SPI4->CR2 |= SPI_CR2_RXDMAEN;
 }
 
 uint8_t SPI_4_send(uint8_t data)
@@ -154,13 +157,16 @@ void SPI_4_send_multi(const uint8_t *data, uint32_t bytes)
 
 void SPI_4_read(uint8_t *rx, uint32_t bytes)
 {
-	for (uint32_t i = 0; i < bytes; i++) {
+/*	for (uint32_t i = 0; i < bytes; i++) {
 		while(SPI4->SR & SPI_SR_BSY);
 		SPI4->DR = 0xff;
 		while(SPI4->SR & SPI_SR_BSY);
 		while(!(SPI4->SR & SPI_SR_RXNE));
 		rx[i] = SPI4->DR;
-	}
+	}*/
+	SPI4->CR2 |= SPI_CR2_TXDMAEN;
+	DMA_SPI4_read_bytes(rx, bytes);
+	SPI4->CR2 &= ~SPI_CR2_TXDMAEN;
 }
 
 void I2S_3_init(void)
